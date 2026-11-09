@@ -16,9 +16,9 @@ struct OnboardingView: View {
             Spacer()
             // Drawn, not fetched: the menu (and its photos) isn't loaded before registration.
             PizzaView(spec: PizzaSpec(sauceHex: "#b5321e", layers: [
-                PizzaLayer(toppingId: 1, style: .cheese),
-                PizzaLayer(toppingId: 3, style: .pepperoni),
-                PizzaLayer(toppingId: 11, style: .basil),
+                PizzaLayer(toppingId: -1, style: .cheese),
+                PizzaLayer(toppingId: -3, style: .pepperoni),
+                PizzaLayer(toppingId: -11, style: .basil),
             ]))
             .frame(width: 120, height: 120)
             Text("Family Pizza")

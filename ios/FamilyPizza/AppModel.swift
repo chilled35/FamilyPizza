@@ -21,6 +21,8 @@ final class AppModel {
     private(set) var toppings: [ToppingInfo] = []         // active toppings, for "add" and build your own
     private(set) var sauces: [Sauce] = []                 // active sauces, usual order (Tomato first)
     let toppingImages = ToppingImages()
+    /// Photo pieces for the pizza picture, by style and (once the menu loads) by topping.
+    private(set) var pieceBook = ToppingPieces.book(for: [])
     private(set) var favourites: [Favourite] = []
     private(set) var orders: [Order] = []
     var cart: [CartItem] = []
@@ -110,6 +112,7 @@ final class AppModel {
         }
         // Photos arrive a moment later; drawings stand in until then.
         let all: [any ToppingPictured] = toppings + menu.flatMap(\.toppings)
+        pieceBook = ToppingPieces.book(for: all)
         await toppingImages.load(all, baseURL: api.baseURL)
     }
 

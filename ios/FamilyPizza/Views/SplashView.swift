@@ -10,10 +10,11 @@ struct SplashView: View {
     @State private var layers: [PizzaLayer] = []
     @State private var appeared = false
 
+    // Negative ids: never a real topping, so pieces come by style, not from some other topping.
     private static let toppings: [PizzaLayer] = [
-        PizzaLayer(toppingId: 1, style: .cheese),
-        PizzaLayer(toppingId: 3, style: .pepperoni),
-        PizzaLayer(toppingId: 11, style: .basil),
+        PizzaLayer(toppingId: -1, style: .cheese),
+        PizzaLayer(toppingId: -3, style: .pepperoni),
+        PizzaLayer(toppingId: -11, style: .basil),
     ]
 
     /// "Version 1.2 (4)": marketing version and build number.
@@ -33,7 +34,7 @@ struct SplashView: View {
                 .opacity(appeared ? 1 : 0)
 
             VStack(spacing: 28) {
-                PizzaView(spec: PizzaSpec(sauceHex: "#b5321e", layers: layers), showsDivider: false)
+                PizzaView(spec: PizzaSpec(sauceHex: "#b5321e", layers: layers), showsDivider: false, dropsToppings: true)
                     .frame(width: 220, height: 220)
                     .rotationEffect(.degrees(appeared ? 0 : -90))
                     .scaleEffect(appeared ? 1 : 0.6)

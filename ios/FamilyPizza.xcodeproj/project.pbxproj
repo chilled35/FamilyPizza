@@ -21,6 +21,7 @@
 		C1C49FE2CD5CB38726561036 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 334E4B393539A54EA9585DEA /* SettingsView.swift */; };
 		C826C54D1305051E9BE62AA3 /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 06D9518C9FBDB7A116E48EBD /* AppModel.swift */; };
 		C93FCEA1CCC31BD57169170B /* PizzaComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4BE9ECAA22796CA9612D86DD /* PizzaComponents.swift */; };
+		D9CB25E5A837ECA5B7076614 /* ToppingPieces.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27C7FFBBD36736ED18C498D7 /* ToppingPieces.swift */; };
 		E31CB9E8EFCB5609D0B086EA /* ToppingImages.swift in Sources */ = {isa = PBXBuildFile; fileRef = 145E55B9B48EA8C899F9C092 /* ToppingImages.swift */; };
 		E8BC649649348D1AE7A0EB73 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5DE945096224D53DCE0A8349 /* Models.swift */; };
 		E96B2F1574AFE142382CE1E1 /* PizzaDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54A99C1229CC45C0A5FFE293 /* PizzaDetailView.swift */; };
@@ -37,6 +38,7 @@
 		0EF1D747EBC496D105EFA266 /* OrdersView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OrdersView.swift; sourceTree = "<group>"; };
 		145E55B9B48EA8C899F9C092 /* ToppingImages.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToppingImages.swift; sourceTree = "<group>"; };
 		1600467D64D1ACA1B3C8C3EF /* CartView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CartView.swift; sourceTree = "<group>"; };
+		27C7FFBBD36736ED18C498D7 /* ToppingPieces.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToppingPieces.swift; sourceTree = "<group>"; };
 		2FD9F77A316B83A08CAB6030 /* PizzaArt.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PizzaArt.swift; sourceTree = "<group>"; };
 		3338BF0C7462016AF3AAA4CB /* OrderTrackerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OrderTrackerView.swift; sourceTree = "<group>"; };
 		334E4B393539A54EA9585DEA /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
@@ -57,7 +59,7 @@
 		B754D1187277D870132E552E /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
 		BFA13CD54842621CAEE7BEB2 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
 		FD33CB5BF5E4BC824ADED4B6 /* Config.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Config.swift; sourceTree = "<group>"; };
-		"TEMP_0414CABA-2102-4B7D-B88B-720FAC3A2416" /* Signing.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Signing.xcconfig; sourceTree = "<group>"; };
+		"TEMP_AE032568-BB18-41FB-85DE-BC0CC2A23CC2" /* Signing.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Signing.xcconfig; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -111,15 +113,16 @@
 				2FD9F77A316B83A08CAB6030 /* PizzaArt.swift */,
 				057680FCF3C0B1C1347C7A4D /* PrivacyInfo.xcprivacy */,
 				145E55B9B48EA8C899F9C092 /* ToppingImages.swift */,
+				27C7FFBBD36736ED18C498D7 /* ToppingPieces.swift */,
 				B017028E987958C32687C9F3 /* Views */,
 			);
 			path = FamilyPizza;
 			sourceTree = "<group>";
 		};
-		"TEMP_E576BFEF-493A-4ED2-B344-DADB5EBA4114" /* ios */ = {
+		"TEMP_36263EC4-191E-49F8-BC07-F38B550952D4" /* ios */ = {
 			isa = PBXGroup;
 			children = (
-				"TEMP_0414CABA-2102-4B7D-B88B-720FAC3A2416" /* Signing.xcconfig */,
+				"TEMP_AE032568-BB18-41FB-85DE-BC0CC2A23CC2" /* Signing.xcconfig */,
 			);
 			path = ios;
 			sourceTree = "<group>";
@@ -216,6 +219,7 @@
 				C1C49FE2CD5CB38726561036 /* SettingsView.swift in Sources */,
 				85AFA159BC4D507ED76575CA /* SplashView.swift in Sources */,
 				E31CB9E8EFCB5609D0B086EA /* ToppingImages.swift in Sources */,
+				D9CB25E5A837ECA5B7076614 /* ToppingPieces.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -224,7 +228,7 @@
 /* Begin XCBuildConfiguration section */
 		12A657ADE42E0E5658D262BB /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = "TEMP_0414CABA-2102-4B7D-B88B-720FAC3A2416" /* Signing.xcconfig */;
+			baseConfigurationReference = "TEMP_AE032568-BB18-41FB-85DE-BC0CC2A23CC2" /* Signing.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
@@ -333,7 +337,7 @@
 		};
 		CEF125EF84B871CF6ADABA8C /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = "TEMP_0414CABA-2102-4B7D-B88B-720FAC3A2416" /* Signing.xcconfig */;
+			baseConfigurationReference = "TEMP_AE032568-BB18-41FB-85DE-BC0CC2A23CC2" /* Signing.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;

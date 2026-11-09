@@ -26,6 +26,23 @@ struct PizzaLayer: Hashable, Identifiable, Sendable {
     var extra = false
 
     var id: String { "\(toppingId)-\(side.rawValue)-\(extra)" }
+    /// Which topping on which part of the pizza; "extra" changes the amount, not the slot.
+    var slot: String { "\(toppingId)-\(side.rawValue)" }
+}
+
+/// Photo pieces to scatter in place of the drawn ones, filled in by the app
+/// (ToppingPieces.swift). Empty, as in the icon tool, means everything is drawn.
+struct PizzaPieceBook: Sendable {
+    var byTopping: [Int: [Image]] = [:]
+    var byStyle: [ToppingStyle: [Image]] = [:]
+
+    func pieces(for layer: PizzaLayer) -> [Image] {
+        layer.style == .cheese ? [] : byTopping[layer.toppingId] ?? byStyle[layer.style] ?? []
+    }
+}
+
+extension EnvironmentValues {
+    @Entry var pizzaPieces = PizzaPieceBook()
 }
 
 /// Everything the picture needs.
@@ -46,17 +63,28 @@ struct PizzaView: View {
     /// the app has no drawing for is shown as little discs of its photo).
     var images: [Int: Image] = [:]
     var showsDivider = true
+    /// Toppings added while the picture is on screen fall onto it piece by piece, as if dropped
+    /// by hand (the live picture on the customise and build-your-own screens).
+    var dropsToppings = false
+
+    @Environment(\.pizzaPieces) private var pieceBook
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var appeared = false
 
     var body: some View {
         // Cheese melts under everything else.
         let ordered = spec.layers.filter { $0.style == .cheese } + spec.layers.filter { $0.style != .cheese }
+        let drops = dropsToppings && appeared && !reduceMotion
         ZStack {
             PizzaBase(sauceHex: spec.sauceHex)
                 .id(spec.sauceHex ?? "")
                 .transition(.opacity)
-            ForEach(ordered) { layer in
-                ToppingLayerView(layer: layer, image: images[layer.toppingId])
-                    .transition(.scale(scale: 1.18).combined(with: .opacity))
+            ForEach(ordered, id: \.slot) { layer in
+                let falls = drops && layer.style != .cheese
+                ToppingLayerView(layer: layer, image: images[layer.toppingId],
+                                 pieces: pieceBook.pieces(for: layer), dropsNewPieces: falls)
+                    .transition(falls ? .asymmetric(insertion: .identity, removal: .opacity)
+                                      : .scale(scale: 1.18).combined(with: .opacity))
             }
             if showsDivider && spec.isHalfAndHalf {
                 HalfDivider().transition(.opacity)
@@ -66,6 +94,7 @@ struct PizzaView: View {
         .animation(.spring(duration: 0.45, bounce: 0.25), value: spec)
         .accessibilityHidden(true)
         .drawingGroup()
+        .onAppear { appeared = true }  // toppings already there when it appears don't fall
     }
 }
 
@@ -90,12 +119,80 @@ struct PizzaBase: View, Equatable {
 struct ToppingLayerView: View {
     let layer: PizzaLayer
     let image: Image?
+    var pieces: [Image] = []
+    /// Pieces that weren't on the pizza at the last update fall in (a new topping, or "extra").
+    var dropsNewPieces = false
+
+    @State private var clock = DropClock()
+    @State private var settledAt: Date?
 
     var body: some View {
-        Canvas { ctx, size in
-            let g = Geometry(size)
-            PizzaPainter.layer(&ctx, g, layer, image: image.map { ctx.resolve($0) })
+        let _ = settledAt  // read, so landing re-renders
+        let now = Date()
+        let drops = clock.note(count: PizzaPainter.pieceCount(layer), falls: dropsNewPieces, now: now)
+        let landed = drops.landingTime
+        TimelineView(.animation(paused: landed.map { $0 <= now } ?? true)) { timeline in
+            Canvas { ctx, size in
+                let g = Geometry(size)
+                PizzaPainter.layer(&ctx, g, layer, image: image.map { ctx.resolve($0) },
+                                   pieces: pieces.map { ctx.resolve($0) }, drops: drops, now: timeline.date)
+            }
         }
+        // Re-render once everything has landed, which pauses the timeline.
+        .task(id: landed) {
+            guard let landed, landed > .now else { return }
+            try? await Task.sleep(for: .seconds(landed.timeIntervalSinceNow + 0.05))
+            if !Task.isCancelled { settledAt = landed }
+        }
+    }
+}
+
+/// When each batch of a layer's pieces started falling. A reference type kept in `@State`, so
+/// `body` can note a new piece count in the same update that draws it (no frame where the new
+/// pieces sit on the pizza before they fall).
+@MainActor
+final class DropClock {
+    private var known: Int?
+    private var batches: [PieceDrops.Batch] = []
+
+    func note(count: Int, falls: Bool, now: Date) -> PieceDrops {
+        batches.removeAll { $0.start + PieceDrops.duration < now }
+        // A layer that arrives while drops are on starts from nothing, so all its pieces fall.
+        let before = known ?? (falls ? 0 : count)
+        if count > before, falls {
+            batches.append(.init(pieces: before..<count, start: now))
+        }
+        batches = batches.compactMap { b in
+            let kept = b.pieces.clamped(to: 0..<count)
+            return kept.isEmpty ? nil : .init(pieces: kept, start: b.start)
+        }
+        known = count
+        return PieceDrops(batches: batches)
+    }
+}
+
+/// The pieces of a layer still falling or settling.
+struct PieceDrops: Sendable {
+    struct Batch: Sendable {
+        let pieces: Range<Int>
+        let start: Date
+    }
+
+    /// From the first piece leaving the hand to the last one settling.
+    static let spread: TimeInterval = 0.5
+    static let fall: TimeInterval = 0.3
+    static let settle: TimeInterval = 0.16
+    static let duration = spread + fall + settle
+
+    var batches: [Batch] = []
+
+    var landingTime: Date? { batches.map { $0.start + Self.duration }.max() }
+
+    /// Seconds since piece `index` started falling (negative: not dropped yet); nil if it isn't falling.
+    func elapsed(_ index: Int, delay: TimeInterval, now: Date) -> TimeInterval? {
+        guard let batch = batches.last(where: { $0.pieces.contains(index) }) else { return nil }
+        let t = now.timeIntervalSince(batch.start) - delay * Self.spread * min(1, Double(batch.pieces.count) / 8)
+        return t >= Self.fall + Self.settle ? nil : t
     }
 }
 
@@ -384,29 +481,113 @@ enum PizzaPainter {
         return placed
     }
 
+    /// How many pieces a layer scatters.
+    static func pieceCount(_ layer: PizzaLayer) -> Int {
+        let recipe = recipe(layer.style)
+        let count = layer.side == .whole ? recipe.count : Int((Double(recipe.count) * 0.55).rounded(.up))
+        return layer.extra ? Int((Double(count) * 1.7).rounded()) : count
+    }
+
+    /// A photo piece's longest side, in piece radii (`Recipe.size`), so it covers about as much
+    /// pizza as the drawing it replaces.
+    static func photoSpan(_ style: ToppingStyle) -> CGFloat {
+        switch style {
+        case .pepperoni, .tomato: 2.1
+        case .sweetcorn: 2.9
+        case .basil, .sausage: 3.0
+        case .olive: 3.1
+        case .mushroom, .pineapple: 3.2
+        case .ham, .onion: 3.4
+        case .chicken, .chilli: 3.6
+        case .pepper: 4.2  // thin curved strips: long for the pizza they cover
+        case .cheese, .generic: 2.2
+        }
+    }
+
+    /// One topping's pieces. With `pieces`, photo pieces stand in for the drawing; pieces in
+    /// `drops` are drawn falling (bigger, nearer the eye, their shadow further off) at `now`.
     static func layer(_ ctx: inout GraphicsContext, _ g: Geometry, _ layer: PizzaLayer,
-                      image: GraphicsContext.ResolvedImage?) {
+                      image: GraphicsContext.ResolvedImage?, pieces: [GraphicsContext.ResolvedImage] = [],
+                      drops: PieceDrops = PieceDrops(), now: Date = .distantPast) {
         let recipe = recipe(layer.style)
         let sideSalt = PizzaSide.allCases.firstIndex(of: layer.side) ?? 0
-        var rng = SeededRandom(seed: layer.toppingId &* 7919 &+ sideSalt &* 104_729)
-        var count = layer.side == .whole ? recipe.count : Int((Double(recipe.count) * 0.55).rounded(.up))
-        if layer.extra { count = Int((Double(count) * 1.7).rounded()) }
-        // The first `count` points are the same with or without extra, so "extra" adds pieces.
-        let points = scatter(count: count, size: recipe.size, spacing: recipe.spacing, side: layer.side, &rng)
+        let seed = layer.toppingId &* 7919 &+ sideSalt &* 104_729
+        var rng = SeededRandom(seed: seed)
+        // The first points are the same with or without extra, so "extra" adds pieces.
+        let points = scatter(count: pieceCount(layer), size: recipe.size, spacing: recipe.spacing, side: layer.side, &rng)
         let s = g.r * recipe.size
 
         if layer.style == .cheese {
             cheese(&ctx, g, points: points, side: layer.side, &rng)
             return
         }
+
+        /// Everything random about piece `i`, from its own generator so pieces never shift
+        /// when others are added, removed or drawn in a different order.
+        struct Piece {
+            var rng: SeededRandom
+            let at: CGPoint
+            let angle: Angle
+            let scale: CGFloat
+            let photo: Int
+            let delay: TimeInterval
+            let spin: Angle
+        }
+        let all = points.enumerated().map { i, p in
+            var r = SeededRandom(seed: seed &+ (i + 1) &* 0x2545_F491)
+            return Piece(rng: r, at: CGPoint(x: g.c.x + p.x * g.r, y: g.c.y + p.y * g.r),
+                         angle: r.angle(), scale: r.range(0.88...1.1), photo: Int(r.next() >> 33),
+                         delay: Double(r.unit()), spin: .degrees(Double(r.range(-50...50))))
+        }
+
+        func draw(_ piece: Piece, in c: inout GraphicsContext, lift: CGFloat = 0, squash: CGFloat = 1) {
+            var c = c
+            var rng = piece.rng
+            c.translateBy(x: piece.at.x, y: piece.at.y)
+            c.rotate(by: piece.angle + piece.spin * Double(lift))
+            let size = s * piece.scale * (1 + lift * 0.75) * squash
+            if pieces.isEmpty {
+                PizzaPainter.piece(&c, layer.style, size, &rng, image: image)
+            } else {
+                let photo = pieces[piece.photo % pieces.count]
+                let span = size * photoSpan(layer.style)
+                let k = span / max(photo.size.width, photo.size.height, 1)
+                let w = photo.size.width * k, h = photo.size.height * k
+                c.draw(photo, in: CGRect(x: -w / 2, y: -h / 2, width: w, height: h))
+            }
+        }
+
+        // Landed (and settling) pieces, with the usual soft shadow.
+        var falling: [(Piece, CGFloat)] = []
         ctx.drawLayer { l in
             l.addFilter(.shadow(color: .black.opacity(0.32), radius: g.r * 0.012, x: g.r * 0.004, y: g.r * 0.009))
-            for p in points {
-                var c = l
-                c.translateBy(x: g.c.x + p.x * g.r, y: g.c.y + p.y * g.r)
-                c.rotate(by: rng.angle())
-                piece(&c, layer.style, s * rng.range(0.88...1.1), &rng, image: image)
+            for (i, piece) in all.enumerated() {
+                guard let t = drops.elapsed(i, delay: piece.delay, now: now) else {
+                    draw(piece, in: &l)
+                    continue
+                }
+                if t < 0 { continue }  // still in the hand
+                if t < PieceDrops.fall {
+                    let p = t / PieceDrops.fall
+                    falling.append((piece, CGFloat(1 - p * p)))  // speeds up as it falls
+                } else {
+                    // A small squash as it lands.
+                    let q = (t - PieceDrops.fall) / PieceDrops.settle
+                    draw(piece, in: &l, squash: 1 - 0.07 * CGFloat(sin(q * .pi)))
+                }
             }
+        }
+        // Falling pieces above the rest; their shadow drifts further off the higher they are.
+        for (piece, lift) in falling {
+            let fade = min(1, (1 - lift) * 4 + 0.15)
+            var shadow = ctx
+            shadow.opacity = 0.3 * (1 - lift * 0.6)
+            shadow.addFilter(.blur(radius: g.r * (0.012 + lift * 0.03)))
+            shadow.fill(disc(s * piece.scale * 0.95, at: CGPoint(x: piece.at.x + g.r * 0.09 * lift, y: piece.at.y + g.r * 0.13 * lift)),
+                        with: .color(.black))
+            var c = ctx
+            c.opacity = Double(fade)
+            draw(piece, in: &c, lift: lift)
         }
     }
 

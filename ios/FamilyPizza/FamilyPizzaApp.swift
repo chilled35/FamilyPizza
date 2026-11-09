@@ -22,6 +22,7 @@ struct FamilyPizzaApp: App {
                     .zIndex(1)
                 }
             }
+            .environment(\.pizzaPieces, appDelegate.model.pieceBook)
         }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active {

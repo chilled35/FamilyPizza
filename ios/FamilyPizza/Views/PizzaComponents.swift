@@ -10,7 +10,7 @@ struct PizzaStage: View {
         ZStack(alignment: .bottom) {
             // A soft spotlight so the pizza sits on something, in light and dark mode.
             RadialGradient(colors: [Color.orange.opacity(0.16), .clear], center: .center, startRadius: 10, endRadius: 260)
-            PizzaView(spec: spec, images: model.toppingImages.images)
+            PizzaView(spec: spec, images: model.toppingImages.images, dropsToppings: true)
                 .padding(.vertical, 10)
                 .padding(.bottom, caption == nil ? 0 : 14)
             if let caption {
