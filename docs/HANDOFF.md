@@ -411,6 +411,12 @@ A web page served by the backend (e.g. `GET /kitchen`), opened in Safari on the 
 - **Menu:** the title is a bold "Menu" centred in the bar (inline title mode plus a `.principal` toolbar item; large titles can't be centred), and the "Thin crust…" note is centred.
 - **Uploaded to TestFlight 2026-11-09 17:42** from the command line: `xcodebuild archive` (Release, `-allowProvisioningUpdates`), then `xcodebuild -exportArchive` with ExportOptions `method app-store-connect`, `destination upload`, your team ID, automatic signing. Archive kept at `ios/build/FamilyPizza-1.2-4.xcarchive`. The next upload needs `CURRENT_PROJECT_VERSION` 5.
 
+**1.3 (5), 2026-11-09** (not yet on TestFlight; needs server v0.10.0, live since 21:02 with every topping's pieces seeded):
+- **Photo pieces on the pizza:** toppings are scattered photo pieces (each topping's `pieceUrls` from the server, see §4 v0.10.0) instead of drawn shapes; cheese stays drawn. Until the pieces load, offline, or for a topping with none, the drawing is used.
+- **Pieces drop on:** on the customise and build-your-own picture (`PizzaStage`) and the splash, a newly added topping's pieces fall onto the pizza one by one, big and faint first, then landing with a small squash as their shadow closes in; "double" drops only the extra pieces; removing fades out. Off with Reduce Motion. Lists, basket and tracker show the pieces without the fall.
+- Expect drawn toppings on the splash and for about a second after launch: the pieces arrive with the menu.
+- `project.yml`: `MARKETING_VERSION` 1.3, `CURRENT_PROJECT_VERSION` 5.
+
 **TestFlight (distribution to the family)**
 - **Ready for upload:**
   - `PrivacyInfo.xcprivacy` declares UserDefaults (reason `CA92.1`) and no tracking. App Store Connect rejects uploads without required-reason declarations (ITMS-91053).

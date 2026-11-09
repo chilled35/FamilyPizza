@@ -146,3 +146,5 @@ A home-LAN pizza-ordering system for the family:
 - [x] iOS 1.2 (4) uploaded to TestFlight 2026-11-09 17:42 (instead of 1.1 (3); needs v0.9.0). Also adds a launch splash with the version number, and a centred Menu title
 - [x] 1.2 (4) distributed to the "Family" TestFlight group; working on the family's phones (2026-11-09)
 - [x] Source on GitHub: https://github.com/chilled35/FamilyPizza (public; no keys). Fresh-server guide: `docs/SERVER_SETUP.md`
+- [x] **v0.10.0 live** 2026-11-09 21:02: owner-uploaded topping piece sheets, cut by the server and served as `piece_urls`; every topping except Mozzarella seeded with 12 pieces (snapshot `pre_v0100`, migration 008; HANDOFF §4 v0.10.0, §8 step 12)
+- [ ] **iOS 1.3 (5)** uploaded to TestFlight: photo topping pieces from the server that drop onto the pizza as toppings are added (HANDOFF §7). Release build compiles; needs v0.10.0 (live)

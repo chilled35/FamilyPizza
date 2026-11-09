@@ -24,8 +24,8 @@ targets:
       base:
         PRODUCT_NAME: FamilyPizza
         PRODUCT_BUNDLE_IDENTIFIER: com.aspinalljason.familypizza  # = APNs topic on the server (HANDOFF §6)
-        MARKETING_VERSION: "1.2"
-        CURRENT_PROJECT_VERSION: "4"
+        MARKETING_VERSION: "1.3"
+        CURRENT_PROJECT_VERSION: "5"
         TARGETED_DEVICE_FAMILY: "1"  # iPhone only; the kitchen iPad uses the /kitchen web page
         CODE_SIGN_ENTITLEMENTS: FamilyPizza/FamilyPizza.entitlements
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon

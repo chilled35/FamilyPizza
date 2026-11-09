@@ -59,7 +59,7 @@
 		B754D1187277D870132E552E /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
 		BFA13CD54842621CAEE7BEB2 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
 		FD33CB5BF5E4BC824ADED4B6 /* Config.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Config.swift; sourceTree = "<group>"; };
-		"TEMP_AE032568-BB18-41FB-85DE-BC0CC2A23CC2" /* Signing.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Signing.xcconfig; sourceTree = "<group>"; };
+		"TEMP_79A80BDB-7A16-4A3C-A79A-81F92D54B877" /* Signing.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Signing.xcconfig; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -119,10 +119,10 @@
 			path = FamilyPizza;
 			sourceTree = "<group>";
 		};
-		"TEMP_36263EC4-191E-49F8-BC07-F38B550952D4" /* ios */ = {
+		"TEMP_224A004B-9791-444B-84A0-B654D2B66797" /* ios */ = {
 			isa = PBXGroup;
 			children = (
-				"TEMP_AE032568-BB18-41FB-85DE-BC0CC2A23CC2" /* Signing.xcconfig */,
+				"TEMP_79A80BDB-7A16-4A3C-A79A-81F92D54B877" /* Signing.xcconfig */,
 			);
 			path = ios;
 			sourceTree = "<group>";
@@ -228,7 +228,7 @@
 /* Begin XCBuildConfiguration section */
 		12A657ADE42E0E5658D262BB /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = "TEMP_AE032568-BB18-41FB-85DE-BC0CC2A23CC2" /* Signing.xcconfig */;
+			baseConfigurationReference = "TEMP_79A80BDB-7A16-4A3C-A79A-81F92D54B877" /* Signing.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
@@ -298,14 +298,14 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = FamilyPizza/FamilyPizza.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				CURRENT_PROJECT_VERSION = 4;
+				CURRENT_PROJECT_VERSION = 5;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = FamilyPizza/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.2;
+				MARKETING_VERSION = 1.3;
 				PRODUCT_BUNDLE_IDENTIFIER = com.aspinalljason.familypizza;
 				PRODUCT_NAME = FamilyPizza;
 				SDKROOT = iphoneos;
@@ -320,14 +320,14 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = FamilyPizza/FamilyPizza.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				CURRENT_PROJECT_VERSION = 4;
+				CURRENT_PROJECT_VERSION = 5;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = FamilyPizza/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.2;
+				MARKETING_VERSION = 1.3;
 				PRODUCT_BUNDLE_IDENTIFIER = com.aspinalljason.familypizza;
 				PRODUCT_NAME = FamilyPizza;
 				SDKROOT = iphoneos;
@@ -337,7 +337,7 @@
 		};
 		CEF125EF84B871CF6ADABA8C /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = "TEMP_AE032568-BB18-41FB-85DE-BC0CC2A23CC2" /* Signing.xcconfig */;
+			baseConfigurationReference = "TEMP_79A80BDB-7A16-4A3C-A79A-81F92D54B877" /* Signing.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
