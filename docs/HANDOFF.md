@@ -40,9 +40,9 @@ The iPhone app is **hard-coded to talk to `http://192.168.0.50:8000`** (the serv
 **Reachable now:** `http://192.168.0.50:8000/` (placeholder page), `/health` → `{"status":"ok"}`, `/docs` (auto OpenAPI — use this to build the iOS client).
 
 **Current files in `/opt/pizza-app/`** (checked 2026-11-09 16:45):
-- Code: `main.py` (API v0.9.0), `apns.py`, `apns_check.py`, `kitchen.html`, `admin.html`, `schema.sql`, `requirements.txt`.
-- Migrations: `migrate_001_users_device_uuid.py`, `migrate_002_favourites_customisation.py`, `migrate_003_devices_environment.py`, `migrate_004_sauces_photos_halves.py`, `migrate_005_order_and_delete.py`, `migrate_006_menu_halves.py`, `migrate_007_byo_favourites_suggestions.py`.
-- Rollback copies: `main.py.v0.8.0` + `admin.html.v0.8.1` (with the cheese section) + `schema.sql.v0.8`, `admin.html.v0.8.0` (before the cheese section), `main.py.v0.7.0` + `admin.html.v0.7` + `kitchen.html.v0.7` + `schema.sql.v0.7`, `main.py.v0.6.0` + `admin.html.v0.6` + `kitchen.html.v0.6` + `schema.sql.v0.6`, `main.py.v0.5.1` + `admin.html.v0.5` + `kitchen.html.v0.5` + `schema.sql.v0.5`, `main.py.v0.5.0` + `apns.py.v0.5.0`, `main.py.v0.4.0`, `main.py.v0.2.0`.
+- Code: `main.py` (API v0.10.0), `topping_pieces.py`, `apns.py`, `apns_check.py`, `kitchen.html`, `admin.html`, `schema.sql`, `requirements.txt` (Pillow 12.1.1 installed in the venv).
+- Migrations: `migrate_001_users_device_uuid.py`, `migrate_002_favourites_customisation.py`, `migrate_003_devices_environment.py`, `migrate_004_sauces_photos_halves.py`, `migrate_005_order_and_delete.py`, `migrate_006_menu_halves.py`, `migrate_007_byo_favourites_suggestions.py`, `migrate_008_topping_pieces.py`.
+- Rollback copies: `main.py.v0.9.0` + `admin.html.v0.9` + `schema.sql.v0.9` + `requirements.txt.v0.9`, `main.py.v0.8.0` + `admin.html.v0.8.1` (with the cheese section) + `schema.sql.v0.8`, `admin.html.v0.8.0` (before the cheese section), `main.py.v0.7.0` + `admin.html.v0.7` + `kitchen.html.v0.7` + `schema.sql.v0.7`, `main.py.v0.6.0` + `admin.html.v0.6` + `kitchen.html.v0.6` + `schema.sql.v0.6`, `main.py.v0.5.1` + `admin.html.v0.5` + `kitchen.html.v0.5` + `schema.sql.v0.5`, `main.py.v0.5.0` + `apns.py.v0.5.0`, `main.py.v0.4.0`, `main.py.v0.2.0`.
 - Data: `pizza.db`, plus `pizza.db.bak-*-pre001/-pre002/-pre003/-pre004/-pre005/-pre006/-pre007` migration backups.
 - `staging-v060/`, `staging-v070/`, `staging-v080/`, `staging-v090/`: each release's files as copied before go-live (same checksums as went live); safe to delete.
 - `venv/`.
@@ -228,7 +228,7 @@ Build-your-own favourites, and menu suggestions from the app.
 - **Old apps:** 1.1 (and 1.2 builds from before this change) can't decode a favourites list containing a build-your-own favourite (`pizzaId` was not optional), so someone who saves one on 1.2 and still has 1.1 on another phone sees an error there. Same edge as v0.6.0's build-your-own orders; update everyone.
 - **Tested:** 22 API checks on the local server (BYO favourite save, shape, duplicate label 409, missing sauce / `added` 422, switched-off topping unavailable, menu favourites unaffected, mixed list, delete; suggestion save and shape, empty name/toppings, unknown sauce 422, unknown device 404, same half twice 422, admin list order, added/dismissed/undo, unknown pizza 422, bad status 422) and the 21 v0.8.0 checks again. Migration 007 run twice on the local test DB. `/admin` Suggestions: Add to menu (prefilled dialog, pizza created, suggestion marked "added as …"), Dismiss and Undo.
 
-### v0.10.0 additions (not deployed yet)
+### v0.10.0 additions (live 2026-11-09 21:02, see §8 step 12)
 
 The server is the only source of every topping's pieces for the app's pizza picture: seeded from `Food Images/`, and changed by the owner in `/admin` without an app release. The app bundles no pieces (the asset catalog lost ~6 MB); until the pieces load, and offline, it draws the toppings as it did before photo pieces.
 
@@ -477,6 +477,13 @@ A web page served by the backend (e.g. `GET /kitchen`), opened in Safari on the 
    - Checked live: version 0.9.0, `/health`, `/admin` (no console errors; Suggestions hidden until the first one arrives), `/kitchen`, `/api/menu`, `/api/toppings`, `/api/sauces`, kitchen orders, admin pizzas, admin suggestions (empty). The restart logged the usual "Cancel 1 running task(s)" (the kitchen iPad's open stream).
    - App 1.2 (4) now needs v0.9.0 (it was v0.8.0) for its build-your-own ☆ and suggestions; everything else works on v0.8.0.
    - Rollback: restore the snapshot, or the `.v0.8*` copies plus `pizza.db.bak-*-pre007` (v0.8.0 code would fail on a build-your-own favourite's NULL pizza_id).
+12. **Topping pieces from the server (v0.10.0 server)**: server **live as v0.10.0 on 2026-11-09 21:02** (§4 v0.10.0). Approved by Jason ("Merge and deploy"); app not shipped (TestFlight is Jason's).
+   - Snapshot `pre_v0100` taken by Claude through the API token. Pillow 12.1.1 installed into `/opt/pizza-app/venv` (as `pizza`, from PyPI). Staged in `staging-v0100/`; dry run of migration 008 (twice) and the new server on a copy of the live DB: version 0.10.0, `/api/toppings` with `piece_urls`, `/api/menu`, `/admin`, all OK.
+   - Live: rollback copies `main.py.v0.9.0`, `admin.html.v0.9`, `schema.sql.v0.9`, `requirements.txt.v0.9`; migration 008 applied (backup `pizza.db.bak-20261109-210159-pre008`); integrity and foreign-key checks clean; 14 order rows kept. The restart logged the usual "Cancel 1 running task(s)".
+   - Checked live with curl: `/health`, version 0.10.0 and both pieces routes in `/openapi.json`, `/api/menu`, `/admin`, `/kitchen` 200; `sha1sum` of `main.py`, `admin.html`, `schema.sql`, `requirements.txt`, `topping_pieces.py`, `migrate_008_topping_pieces.py` match `main` (`1b7c614`).
+   - Seeded from the Mac with `ios/tools/seed_server_pieces.py http://192.168.0.50:8000` (dry run first): 12 pieces each for Ham, Pepperoni, Harissa Chicken, Chipolte Chicken, Red onion, Peppers, Chilli, Sweetcorn, Basil and Tomato (switched off); Mozzarella skipped (drawn as cheese). Piece URLs serve `image/png`, `immutable`.
+   - Apps: builds with bundled pieces (up to `b432cee`) ignore `piece_urls`; the next build (`1b7c614`, no bundled pieces) needs this server, now live.
+   - Rollback: restore `pre_v0100`, or the `.v0.9*` copies (v0.9.0 code ignores the new columns and table, so `pizza.db` can stay).
 
 After any backend change: `systemctl restart pizza-app` (and `./venv/bin/pip install …` for new deps). Check `/docs` reflects changes.
 
