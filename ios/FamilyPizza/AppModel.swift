@@ -21,8 +21,8 @@ final class AppModel {
     private(set) var toppings: [ToppingInfo] = []         // active toppings, for "add" and build your own
     private(set) var sauces: [Sauce] = []                 // active sauces, usual order (Tomato first)
     let toppingImages = ToppingImages()
-    /// Photo pieces for the pizza picture, by style and (once the menu loads) by topping.
-    private(set) var pieceBook = ToppingPieces.book(for: [])
+    /// Photo pieces for the pizza picture, from the server; empty (everything drawn) until they load.
+    private(set) var pieceBook = PizzaPieceBook()
     private(set) var favourites: [Favourite] = []
     private(set) var orders: [Order] = []
     var cart: [CartItem] = []
@@ -114,7 +114,7 @@ final class AppModel {
         let all: [any ToppingPictured] = toppings + menu.flatMap(\.toppings)
         pieceBook = ToppingPieces.book(for: all, server: toppingImages.pieces)
         await toppingImages.load(all, baseURL: api.baseURL)
-        // The owner's own pieces (a pieces sheet uploaded in /admin) replace the bundled ones.
+        // Each topping's pieces (seeded on the server, changed by the owner in /admin).
         pieceBook = ToppingPieces.book(for: all, server: toppingImages.pieces)
     }
 

@@ -10,7 +10,7 @@ grey-and-white checkerboard image generators paint in place of transparency). Cu
   3. trims each piece and scales it to at most PIECE_PX on its longest side.
 
 Shared by the server (owner uploads a sheet in /admin, see main.py) and by
-ios/tools/cut_toppings.py (cuts the sheets bundled in the app). Needs Pillow only.
+ios/tools/cut_toppings.py (cuts the photos in "Food Images/" for seeding the server). Needs Pillow only.
 """
 from __future__ import annotations
 
@@ -26,7 +26,7 @@ MAX_PIECES = 12       # pieces kept per topping (keeps the app and the API small
 MIN_PIECE = 0.004     # a piece must cover this fraction of the (scaled) image
 # Enclosed background is a hole (cleared) only in these toppings, and only when it covers at
 # least this fraction of the image: elsewhere pale flesh (onion, mushroom) would be cut away.
-# Keyed by the app's topping style (main.TOPPING_STYLES) / the bundled set name.
+# Keyed by the app's topping style (main.TOPPING_STYLES) / the cut_toppings.py set name.
 HOLES = {"chilli": 0.00004, "olive": 0.00004, "onion": 0.0004}
 
 # Server-side guard against huge or hostile uploads (decompression bombs).

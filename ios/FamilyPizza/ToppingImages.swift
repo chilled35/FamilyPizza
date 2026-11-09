@@ -65,7 +65,7 @@ final class ToppingImages {
         for topping in toppings where seen.insert(topping.id).inserted {
             let paths = topping.pieceUrls ?? []
             if paths.isEmpty {
-                // Pieces removed by the owner: back to the bundled pieces (or the photo).
+                // Pieces removed by the owner: back to the drawing.
                 if loadedPieceURLs[topping.id] != nil { pieces[topping.id] = nil; loadedPieceURLs[topping.id] = nil }
                 continue
             }

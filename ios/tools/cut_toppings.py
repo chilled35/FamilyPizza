@@ -1,18 +1,18 @@
 #!/usr/bin/env python3
-"""Cut the topping photos in "Food Images/" into single pieces for the pizza picture.
+"""Cut the topping photos in "Food Images/" into sets of single pieces for the pizza picture.
 
 Each source image holds a few separate pieces of one topping (or, for the two collection
 sheets, a grid of tiles with a few pieces of each topping). This script:
   1. removes the background: real transparency where the PNG has it, otherwise the light
      grey/white "checkerboard" that image generators paint in place of transparency;
   2. finds each separate piece (connected opaque area);
-  3. writes each piece, trimmed and scaled to at most PIECE_PX on its longest side, into
-     the app's asset catalog as `piece-<set>-<nn>` (FamilyPizza/Assets.xcassets/Toppings).
+  3. trims each piece and scales it to at most PIECE_PX on its longest side, into a named
+     set (pepperoni, basil, chicken-harissa, ...; at most MAX_PER_SET used per set).
 
-The app finds pieces by name (ToppingPieces.swift), so adding or removing images here needs no
-code change. Re-run after changing the sources:
+The app doesn't bundle the pieces: seed_server_pieces.py uploads each topping's set to the
+server, and the app gets them from there. Run this on its own to check the cutting by eye:
 
-    cd ios && python3 tools/cut_toppings.py
+    cd ios && python3 tools/cut_toppings.py [contact-sheet.png]
 
 The cutting is in server/topping_pieces.py, shared with the server (which cuts the pieces
 sheets the owner uploads in /admin the same way). Needs Pillow (pip install Pillow).
@@ -21,8 +21,6 @@ Writes a contact sheet of every piece on a sauce-red ground to /tmp/topping_piec
 """
 from __future__ import annotations
 
-import json
-import shutil
 import sys
 from pathlib import Path
 
@@ -35,7 +33,6 @@ import topping_pieces as shared  # noqa: E402
 from topping_pieces import HOLES, PIECE_PX, WORK_PX, pieces  # noqa: E402
 
 SOURCES = ROOT / "Food Images"
-OUT = ROOT / "ios" / "FamilyPizza" / "Assets.xcassets" / "Toppings"
 
 # PIECE_PX, WORK_PX, HOLES and the piece-finding thresholds live in server/topping_pieces.py.
 SHEET_PX = 1600       # collection sheets keep full size (their pieces are small)
@@ -128,28 +125,8 @@ def cut_sets() -> dict[str, list[Image.Image]]:
 
 def main() -> None:
     sets = cut_sets()
-    if OUT.exists():
-        shutil.rmtree(OUT)
-    OUT.mkdir(parents=True)
-    (OUT / "Contents.json").write_text(json.dumps({"info": {"author": "xcode", "version": 1}}, indent=2) + "\n")
-    total = 0
-    all_pieces = []
     for name, found in sorted(sets.items()):
-        for n, piece in enumerate(found[:MAX_PER_SET], start=1):
-            asset = f"piece-{name}-{n:02d}"
-            folder = OUT / f"{asset}.imageset"
-            folder.mkdir()
-            piece.save(folder / f"{asset}.png", optimize=True)
-            total += (folder / f"{asset}.png").stat().st_size
-            (folder / "Contents.json").write_text(json.dumps({
-                "images": [{"filename": f"{asset}.png", "idiom": "universal"}],
-                "info": {"author": "xcode", "version": 1},
-                # Photos: lossy compression in the built app keeps the download small.
-                "properties": {"compression-type": "lossy"},
-            }, indent=2) + "\n")
-            all_pieces.append(piece)
         print(f"{name}: {min(len(found), MAX_PER_SET)} pieces (of {len(found)})")
-    print(f"{len(all_pieces)} pieces, {total / 1e6:.1f} MB")
 
     # Contact sheet for checking by eye.
     cell, cols = PIECE_PX + 8, 12

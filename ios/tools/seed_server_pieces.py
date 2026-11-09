@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """Give every topping on a server its pieces, from the photos in "Food Images/".
 
-The server is where the app gets each topping's pieces (the owner uploads a pieces sheet in
-/admin). This seeds it with the same pieces the app bundles: it cuts the sources exactly as
-cut_toppings.py does, picks each server topping's set the way the app does (ToppingPieces.swift:
-name first, then style), lays that topping's pieces out on a transparent sheet with a gap
-around each, and uploads the sheet through the admin API (PUT /api/admin/toppings/{id}/pieces),
-just as the owner would in /admin. The server cuts it back into the same pieces.
+The server is where the app gets every topping's pieces (the owner uploads a pieces sheet in
+/admin; the app bundles none). This seeds it: it cuts the sources with cut_toppings.py, picks
+each server topping's set (its style, or for "generic"/"chicken" toppings a word in its name,
+so "Harissa chicken" gets harissa chicken and a "Basil" left generic gets basil leaves), lays
+that topping's pieces out on a transparent sheet with a gap around each, and uploads the sheet
+through the admin API (PUT /api/admin/toppings/{id}/pieces), just as the owner would in /admin.
+The server cuts it back into the same pieces.
 
 Toppings that already have pieces are left alone (the owner may have uploaded their own),
 unless --replace. Cheese and toppings that match no set get nothing.
@@ -31,7 +32,7 @@ from PIL import Image
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from cut_toppings import MAX_PER_SET, PIECE_PX, cut_sets  # noqa: E402
 
-# Keep in step with ToppingPieces.swift (nameWords, sets(name:style:), sets(for:)).
+# Name words, checked in order (first match wins), like guess_style in server/main.py.
 NAME_WORDS = [
     ("harissa", ["chicken-harissa"]), ("chipotle", ["chicken-chipotle"]), ("chipolte", ["chicken-chipotle"]),
     ("chicken", ["chicken-chipotle", "chicken-harissa"]),
@@ -50,7 +51,7 @@ def sets_for_style(style: str) -> list[str]:
     if style == "chicken":
         return ["chicken-chipotle", "chicken-harissa"]
     if style in ("cheese", "generic"):
-        return []  # cheese is drawn melted; generic has no bundled pieces
+        return []  # cheese is drawn melted; generic has no set of its own
     return [style]
 
 
@@ -102,7 +103,7 @@ def main() -> None:
         found = found[:MAX_PER_SET]
         label = f"{t['name']} ({t['style']})"
         if not found:
-            print(f"{label}: no bundled set, skipped")
+            print(f"{label}: no set for it in Food Images, skipped")
             continue
         if t.get("piece_urls") and not args.replace:
             print(f"{label}: already has {len(t['piece_urls'])} pieces, kept (use --replace)")

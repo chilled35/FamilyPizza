@@ -127,7 +127,7 @@ class ToppingInfo(Topping):
     style: str
     image_url: str | None  # relative to the server, versioned (cache for ever); null = no photo yet
     # Pieces cut from the owner's pieces sheet, for the app's pizza picture (relative, versioned,
-    # cache for ever); [] = none, the app uses its bundled pieces or the photo. Added in v0.10.0.
+    # cache for ever); [] = none, the app draws the topping (older apps: bundled pieces). Added in v0.10.0.
     piece_urls: list[str] = []
 
 
@@ -790,7 +790,7 @@ async def admin_upload_topping_pieces(topping_id: int, request: Request):
 
 @app.delete("/api/admin/toppings/{topping_id}/pieces", response_model=ToppingWithStatus, tags=["admin"])
 def admin_delete_topping_pieces(topping_id: int):
-    """Remove a topping's pieces (the app goes back to its bundled pieces, or the photo)."""
+    """Remove a topping's pieces (the app goes back to drawing it)."""
     return _store_topping_pieces(topping_id, None)
 
 

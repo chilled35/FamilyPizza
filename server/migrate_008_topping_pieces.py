@@ -6,7 +6,7 @@ Adds:
   toppings.pieces_hash  TEXT  (sha1 over all the pieces, versions the piece URLs)
   topping_pieces (topping_id -> toppings, n 1.., image BLOB PNG ~144 px, PRIMARY KEY (topping_id, n))
       the pieces cut from a "pieces sheet" the owner uploaded in /admin; the app scatters
-      them on its pizza picture instead of the bundled pieces for that topping.
+      them on its pizza picture (seeded by ios/tools/seed_server_pieces.py).
 
 No data changes. Idempotent, online backup first, one transaction, foreign_key_check before commit.
 
