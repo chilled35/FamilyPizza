@@ -97,7 +97,9 @@ def looks_green(piece: Image.Image) -> bool:
     return n > 0 and g / n > 90  # black and kalamata olives are much darker
 
 
-def main() -> None:
+def cut_sets() -> dict[str, list[Image.Image]]:
+    """Every set's pieces, in order (singles first, then the collection sheets), uncapped.
+    Also used by seed_server_pieces.py."""
     sets: dict[str, list[Image.Image]] = {}
 
     def add(name: str, piece: Image.Image) -> None:
@@ -121,7 +123,11 @@ def main() -> None:
             if name := tile(cx, cy):
                 add(name, piece)
         print(f"{file}: done")
+    return sets
 
+
+def main() -> None:
+    sets = cut_sets()
     if OUT.exists():
         shutil.rmtree(OUT)
     OUT.mkdir(parents=True)

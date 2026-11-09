@@ -1,19 +1,24 @@
 import SwiftUI
 import UIKit
 
-/// Photo pieces of each topping (Assets.xcassets/Toppings, cut by ios/tools/cut_toppings.py),
-/// scattered on the pizza picture in place of the drawn ones.
+/// Photo pieces of each topping, scattered on the pizza picture in place of the drawn ones.
+///
+/// The server is the source: every topping's pieces come from it (`pieceUrls`, fetched by
+/// ToppingImages), seeded by ios/tools/seed_server_pieces.py and changed by the owner in /admin.
+/// The same pieces are bundled (Assets.xcassets/Toppings, cut by ios/tools/cut_toppings.py) so
+/// the picture has them before the menu loads (splash, first launch, offline).
 ///
 /// Assets are named `piece-<set>-<nn>`, numbered from 01. A topping's set comes from its name
 /// first (so "Harissa Chicken" gets harissa chicken, and a "Basil" left as style "generic" on the
-/// server still gets basil leaves), then from its style. Pieces the owner uploaded for a topping
-/// (a pieces sheet in /admin, fetched by ToppingImages) come before all of that.
+/// server still gets basil leaves), then from its style.
 @MainActor
 enum ToppingPieces {
     private static var cache: [String: [Image]] = [:]
 
-    /// Every set for every style, plus the toppings the app knows by id. `server` holds the
-    /// pieces cut from owner-uploaded sheets, by topping id; they win over the bundled sets.
+    /// Every set for every style, plus the toppings the app knows by id. `server` holds each
+    /// topping's pieces from the server, by id; they win over the bundled sets, for that topping
+    /// and (first topping of a style in menu order) for its style, which draws toppings the menu
+    /// no longer lists and the splash pizza.
     static func book(for toppings: [any ToppingPictured], server: [Int: [Image]] = [:]) -> PizzaPieceBook {
         var book = PizzaPieceBook()
         for style in ToppingStyle.allCases {
@@ -24,7 +29,13 @@ enum ToppingPieces {
             let found = sets(name: topping.name, style: topping.artStyle).flatMap(images(inSet:))
             if !found.isEmpty { book.byTopping[topping.id] = found }
         }
-        for (id, found) in server where !found.isEmpty { book.byTopping[id] = found }
+        var styled: Set<ToppingStyle> = []
+        for topping in toppings {
+            guard let found = server[topping.id], !found.isEmpty else { continue }
+            book.byTopping[topping.id] = found
+            let style = topping.artStyle
+            if style != .generic, style != .cheese, styled.insert(style).inserted { book.byStyle[style] = found }
+        }
         return book
     }
 
