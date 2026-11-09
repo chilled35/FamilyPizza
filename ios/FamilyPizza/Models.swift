@@ -10,11 +10,13 @@ struct ToppingRef: Codable, Hashable, Identifiable, Sendable {
 }
 
 /// Anything that can show a topping picture: its photo from the server, or a drawing.
-protocol ToppingPictured {
+protocol ToppingPictured: Sendable {
     var id: Int { get }
     var name: String { get }
     var style: String? { get }
     var imageUrl: String? { get }
+    /// Pieces cut from the owner's pieces sheet, for the pizza picture (server v0.10+).
+    var pieceUrls: [String]? { get }
 }
 
 extension ToppingPictured {
@@ -28,6 +30,9 @@ struct ToppingInfo: Codable, Hashable, Identifiable, Sendable, ToppingPictured {
     let style: String?
     /// Relative to the server and versioned; nil until the owner uploads a photo.
     let imageUrl: String?
+    /// Relative and versioned, like `imageUrl`; empty (or nil, from servers before v0.10) when
+    /// the owner hasn't uploaded a pieces sheet.
+    let pieceUrls: [String]?
 }
 
 /// A base topping on a menu pizza. `active == false` means it's currently unavailable.
@@ -37,6 +42,7 @@ struct BaseTopping: Codable, Hashable, Identifiable, Sendable, ToppingPictured {
     let active: Bool
     let style: String?
     let imageUrl: String?
+    let pieceUrls: [String]?
     /// How much the recipe puts on each half: 0 none, 1 normal, 2 double (server v0.8+; older
     /// servers send neither, meaning normal all over).
     let left: Int?

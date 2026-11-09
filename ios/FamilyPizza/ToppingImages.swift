@@ -1,14 +1,17 @@
 import SwiftUI
 import UIKit
 
-/// Topping photos from the server, fetched as the menu loads and kept in memory.
+/// Topping photos and pieces from the server, fetched as the menu loads and kept in memory.
 /// Image URLs are versioned (`?v=<hash>`) and served `immutable`, so the URL cache on disk
 /// answers repeat launches without touching the network; a new upload gets a new URL.
 @MainActor
 @Observable
 final class ToppingImages {
     private(set) var images: [Int: Image] = [:]
+    /// Pieces cut from the owner's pieces sheet, by topping id (all of a topping's, or none).
+    private(set) var pieces: [Int: [Image]] = [:]
     private var loadedURL: [Int: String] = [:]
+    private var loadedPieceURLs: [Int: [String]] = [:]
     private var inFlight: Set<String> = []
 
     private static let session: URLSession = {
@@ -19,8 +22,14 @@ final class ToppingImages {
         return URLSession(configuration: config)
     }()
 
-    /// Fetch every photo not already held (all in parallel; they're small and on the LAN).
+    /// Fetch every photo and piece not already held (all in parallel; they're small and on the LAN).
     func load(_ toppings: [any ToppingPictured], baseURL: URL) async {
+        async let photos: Void = loadPhotos(toppings, baseURL: baseURL)
+        async let cut: Void = loadPieces(toppings, baseURL: baseURL)
+        _ = await (photos, cut)
+    }
+
+    private func loadPhotos(_ toppings: [any ToppingPictured], baseURL: URL) async {
         var wanted: [(Int, String)] = []
         for topping in toppings {
             guard let path = topping.imageUrl else {
@@ -46,6 +55,44 @@ final class ToppingImages {
                 guard let image else { continue }
                 images[id] = Image(uiImage: image)
                 loadedURL[id] = path
+            }
+        }
+    }
+
+    private func loadPieces(_ toppings: [any ToppingPictured], baseURL: URL) async {
+        var wanted: [(Int, [String])] = []
+        var seen: Set<Int> = []
+        for topping in toppings where seen.insert(topping.id).inserted {
+            let paths = topping.pieceUrls ?? []
+            if paths.isEmpty {
+                // Pieces removed by the owner: back to the bundled pieces (or the photo).
+                if loadedPieceURLs[topping.id] != nil { pieces[topping.id] = nil; loadedPieceURLs[topping.id] = nil }
+                continue
+            }
+            let key = paths.joined(separator: " ")
+            if loadedPieceURLs[topping.id] != paths, !inFlight.contains(key) { wanted.append((topping.id, paths)) }
+        }
+        guard !wanted.isEmpty else { return }
+        inFlight.formUnion(wanted.map { $0.1.joined(separator: " ") })
+        await withTaskGroup(of: (Int, [String], [UIImage]?).self) { group in
+            for (id, paths) in wanted {
+                group.addTask {
+                    var found: [UIImage] = []
+                    for path in paths {  // a handful of ~20 KB PNGs: one after another is fine
+                        guard let url = URL(string: path, relativeTo: baseURL),
+                              let (data, response) = try? await Self.session.data(from: url),
+                              (response as? HTTPURLResponse)?.statusCode == 200,
+                              let image = UIImage(data: data) else { return (id, paths, nil) }
+                        found.append(image)
+                    }
+                    return (id, paths, found)
+                }
+            }
+            for await (id, paths, found) in group {
+                inFlight.remove(paths.joined(separator: " "))
+                guard let found else { continue }  // keep what we had; the next refresh retries
+                pieces[id] = found.map { Image(uiImage: $0) }
+                loadedPieceURLs[id] = paths
             }
         }
     }
