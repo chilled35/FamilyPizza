@@ -490,6 +490,8 @@ A web page served by the backend (e.g. `GET /kitchen`), opened in Safari on the 
    - Seeded from the Mac with `ios/tools/seed_server_pieces.py http://192.168.0.50:8000` (dry run first): 12 pieces each for Ham, Pepperoni, Harissa Chicken, Chipolte Chicken, Red onion, Peppers, Chilli, Sweetcorn, Basil and Tomato (switched off); Mozzarella skipped (drawn as cheese). Piece URLs serve `image/png`, `immutable`.
    - Apps: builds with bundled pieces (up to `b432cee`) ignore `piece_urls`; the next build (`1b7c614`, no bundled pieces) needs this server, now live.
    - Rollback: restore `pre_v0100`, or the `.v0.9*` copies (v0.9.0 code ignores the new columns and table, so `pizza.db` can stay).
+13. **Kitchen toppings in columns by type**: `kitchen.html` **live 2026-11-09** (`3254949`). Each part of the pizza (all over / left / right) shows its toppings in Cheese / Meat / Veg / Other columns, from each topping's draw style (`/api/admin/toppings`; generic or deleted = Other). Doubles show as a bold "2×". Only `kitchen.html` changed: no restart, migration or version bump. Tested locally first; live `kitchen.html` and the served `/kitchen` match the Mac's checksum. The iPad picks it up on its next reload. Live Basil has style "generic", so it shows under Other until its "Looks like" is set to Basil in `/admin` (Jason chose to leave it).
+   - Rollback: `cp /opt/pizza-app/kitchen.html.v0.10 /opt/pizza-app/kitchen.html` (as `pizza`).
 
 After any backend change: `systemctl restart pizza-app` (and `./venv/bin/pip install …` for new deps). Check `/docs` reflects changes.
 
