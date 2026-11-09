@@ -19,6 +19,7 @@ from fastapi.sse import EventSourceResponse, ServerSentEvent
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
 import apns
+import topping_pieces
 
 APP_DIR = Path(__file__).resolve().parent
 DB_PATH = Path(os.environ.get("PIZZA_DB", APP_DIR / "pizza.db"))
@@ -32,7 +33,7 @@ if not log.handlers:
     log.setLevel(logging.INFO)
     log.propagate = False
 
-app = FastAPI(title="Family Pizza", version="0.9.0")
+app = FastAPI(title="Family Pizza", version="0.10.0")
 
 
 # --------------------------------------------------------------------------- db
@@ -125,6 +126,9 @@ class Topping(BaseModel):
 class ToppingInfo(Topping):
     style: str
     image_url: str | None  # relative to the server, versioned (cache for ever); null = no photo yet
+    # Pieces cut from the owner's pieces sheet, for the app's pizza picture (relative, versioned,
+    # cache for ever); [] = none, the app uses its bundled pieces or the photo. Added in v0.10.0.
+    piece_urls: list[str] = []
 
 
 class ToppingWithStatus(ToppingInfo):
@@ -416,13 +420,20 @@ def _image_url(topping_id: int, image_hash: str | None) -> str | None:
     return f"/api/toppings/{topping_id}/image?v={image_hash[:12]}" if image_hash else None
 
 
+def _piece_urls(topping_id: int, count: int, pieces_hash: str | None) -> list[str]:
+    if not count or not pieces_hash:
+        return []
+    return [f"/api/toppings/{topping_id}/pieces/{n}?v={pieces_hash[:12]}" for n in range(1, count + 1)]
+
+
 # Never select toppings.image here: list queries must stay small.
-_TOPPING_COLS = "id, name, active, style, image_hash"
+_TOPPING_COLS = "id, name, active, style, image_hash, piece_count, pieces_hash"
 
 
 def _topping_dict(r: sqlite3.Row) -> dict:
     return {"id": r["id"], "name": r["name"], "active": bool(r["active"]),
-            "style": r["style"], "image_url": _image_url(r["id"], r["image_hash"])}
+            "style": r["style"], "image_url": _image_url(r["id"], r["image_hash"]),
+            "piece_urls": _piece_urls(r["id"], r["piece_count"], r["pieces_hash"])}
 
 
 def _fetch_toppings(db: sqlite3.Connection, active_only: bool) -> list[dict]:
@@ -463,7 +474,8 @@ def _fetch_pizzas(db: sqlite3.Connection, active_only: bool, pizza_id: int | Non
 
     base = defaultdict(list)
     for r in db.execute(
-        "SELECT pt.pizza_id, pt.left_amount, pt.right_amount, t.id, t.name, t.active, t.style, t.image_hash "
+        "SELECT pt.pizza_id, pt.left_amount, pt.right_amount, t.id, t.name, t.active, t.style, t.image_hash, "
+        "t.piece_count, t.pieces_hash "
         "FROM pizza_toppings pt JOIN toppings t ON t.id = pt.topping_id ORDER BY t.sort_order, t.name COLLATE NOCASE"
     ):
         base[r["pizza_id"]].append({**_topping_dict(r), "left": r["left_amount"], "right": r["right_amount"]})
@@ -575,6 +587,26 @@ def topping_image(topping_id: int, db: DB, request: Request, v: str | None = Non
     if request.headers.get("if-none-match") == etag:
         return Response(status_code=status.HTTP_304_NOT_MODIFIED, headers=headers)
     return Response(r["image"], media_type=r["image_type"], headers=headers)
+
+
+@app.get("/api/toppings/{topping_id}/pieces/{n}", tags=["menu"], response_class=Response,
+         responses={200: {"content": {"image/png": {}}},
+                    404: {"description": "No such piece for this topping"}})
+def topping_piece(topping_id: int, n: int, db: DB, request: Request, v: str | None = None):
+    """One piece (PNG, transparent background, ~144 px) cut from the topping's pieces sheet.
+    Use the versioned `piece_urls` from the menu: those URLs never change content, so they are
+    cacheable for ever. Works for switched-off toppings too."""
+    r = db.execute("SELECT p.image, t.pieces_hash FROM topping_pieces p JOIN toppings t ON t.id = p.topping_id "
+                   "WHERE p.topping_id = ? AND p.n = ?", (topping_id, n)).fetchone()
+    if r is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "No such piece for this topping")
+    etag = f'"{r["pieces_hash"]}-{n}"'
+    versioned = v is not None and r["pieces_hash"].startswith(v)
+    headers = {"ETag": etag,
+               "Cache-Control": "public, max-age=31536000, immutable" if versioned else "no-cache"}
+    if request.headers.get("if-none-match") == etag:
+        return Response(status_code=status.HTTP_304_NOT_MODIFIED, headers=headers)
+    return Response(r["image"], media_type="image/png", headers=headers)
 
 
 # ------------------------------------------------------------------- admin API
@@ -708,6 +740,58 @@ async def admin_upload_topping_image(topping_id: int, request: Request):
 def admin_delete_topping_image(topping_id: int):
     """Remove a topping's photo (the app falls back to its drawn icon)."""
     return _store_topping_image(topping_id, None, None)
+
+
+MAX_SHEET_BYTES = 8 * 1024 * 1024  # an image generator's sheet is typically 1-3 MB
+
+
+def _store_topping_pieces(topping_id: int, sheet: bytes | None) -> dict:
+    conn = _connect()
+    try:
+        topping = _get_topping(conn, topping_id)
+        pieces: list[bytes] = []
+        if sheet is not None:
+            try:
+                pieces = topping_pieces.cut_sheet(sheet, topping["style"])
+            except topping_pieces.SheetError as e:
+                raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(e)) from e
+        digest = hashlib.sha1(b"".join(hashlib.sha1(p).digest() for p in pieces)).hexdigest() if pieces else None
+        with conn:
+            conn.execute("DELETE FROM topping_pieces WHERE topping_id = ?", (topping_id,))
+            conn.executemany("INSERT INTO topping_pieces (topping_id, n, image) VALUES (?, ?, ?)",
+                             [(topping_id, n, p) for n, p in enumerate(pieces, start=1)])
+            conn.execute("UPDATE toppings SET piece_count = ?, pieces_hash = ? WHERE id = ?",
+                         (len(pieces), digest, topping_id))
+        return _get_topping(conn, topping_id)
+    finally:
+        conn.close()
+
+
+@app.put("/api/admin/toppings/{topping_id}/pieces", response_model=ToppingWithStatus, tags=["admin"],
+         openapi_extra={"requestBody": {"required": True, "content": {
+             "image/png": {"schema": {"type": "string", "format": "binary"}},
+             "image/jpeg": {"schema": {"type": "string", "format": "binary"}},
+             "image/webp": {"schema": {"type": "string", "format": "binary"}}}}})
+async def admin_upload_topping_pieces(topping_id: int, request: Request):
+    """Upload (or replace) a topping's pieces sheet: the raw PNG/JPEG/WebP bytes of an image
+    with a few separate pieces of the topping on a transparent or plain white/light-grey
+    background, at most 8 MB. The server cuts it into pieces (at most 12, ~144 px PNGs) for the
+    app's pizza picture; the sheet itself is not kept. 422 if no separate pieces are found."""
+    data = bytearray()
+    async for chunk in request.stream():
+        data += chunk
+        if len(data) > MAX_SHEET_BYTES:
+            raise HTTPException(status.HTTP_413_CONTENT_TOO_LARGE,
+                                f"Image too big (max {MAX_SHEET_BYTES // (1024 * 1024)} MB)")
+    if _sniff_image(bytes(data[:16])) is None:
+        raise HTTPException(status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, "Send a PNG, JPEG or WebP image")
+    return await run_in_threadpool(_store_topping_pieces, topping_id, bytes(data))
+
+
+@app.delete("/api/admin/toppings/{topping_id}/pieces", response_model=ToppingWithStatus, tags=["admin"])
+def admin_delete_topping_pieces(topping_id: int):
+    """Remove a topping's pieces (the app goes back to its bundled pieces, or the photo)."""
+    return _store_topping_pieces(topping_id, None)
 
 
 @app.get("/api/admin/sauces", response_model=list[SauceWithStatus], tags=["admin"])

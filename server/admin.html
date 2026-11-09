@@ -77,6 +77,16 @@
   .tile .bar .toggle, .tile .bar .danger { margin-left: auto; }
   .tile.off .photo img { opacity: .45; }
   .tiles > li.empty { grid-column: 1 / -1; border: 0; padding: 10px 0; }
+  /* Pieces cut from the topping's pieces sheet, shown on sauce red as on the app's pizza. */
+  .tile .pieces { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .tile .pieces .strip { flex: 1; min-width: 0; min-height: 44px; display: flex; flex-wrap: wrap; gap: 2px;
+                         align-items: center; padding: 3px 6px; border-radius: 10px; background: #b5321e;
+                         border: 0; cursor: pointer; }
+  .tile .pieces .strip img { width: 34px; height: 34px; object-fit: contain; }
+  .tile .pieces .strip.none { background: var(--bg); border: 1px dashed var(--line); color: var(--muted);
+                              font-size: .8rem; justify-content: flex-start; }
+  .tile .pieces .strip.busy { opacity: .5; cursor: progress; }
+  .tile.off .pieces img { opacity: .45; }
   /* Pizza recipe: each topping on the left half / whole / right half, none → normal → double. */
   .recipe { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 0 20px; }
   .rt { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-top: 1px solid var(--line); }
@@ -159,13 +169,17 @@
     <h2 id="t-h">Toppings</h2>
     <p class="hint">Tap a square to add or change its photo (shown in the app). Photos are cropped square and
       shrunk to 256 px here before upload; a close-up on a plain background looks best.
-      The drop-down sets how the app draws it on the pizza picture. ◀▶ set the order the app lists them in.</p>
+      The drop-down sets how the app draws it on the pizza picture. ◀▶ set the order the app lists them in.
+      <br>Pieces: for a topping the app has no pieces for, add a <i>pieces sheet</i>: one picture with a few
+      separate pieces of it (slices, leaves, chunks) on a transparent or plain white / light-grey background,
+      with a gap around each. It is cut into single pieces here, and the app scatters those on its pizza.</p>
     <form class="add" id="add-topping">
       <input type="text" name="name" placeholder="New topping" maxlength="60" required aria-label="New topping name">
       <button class="primary" type="submit">Add</button>
     </form>
     <ul id="topping-list" class="tiles"></ul>
     <input type="file" id="photo-input" accept="image/*" hidden>
+    <input type="file" id="pieces-input" accept="image/png,image/jpeg,image/webp" hidden>
   </section>
   <section aria-labelledby="s-h">
     <h2 id="s-h">Sauces</h2>
@@ -213,6 +227,7 @@
 <script>
 const $ = (s) => document.querySelector(s);
 const state = { toppings: [], pizzas: [], sauces: [], editing: null, photoFor: null, busy: null, focus: null,
+                piecesFor: null, piecesBusy: null,
                 recipe: new Map(),  // pizza dialog: topping id -> { left, right }
                 suggestions: [], fromSuggestion: null };
 // Keep in step with TOPPING_STYLES in main.py.
@@ -330,6 +345,18 @@ function render() {
         'aria-label': `How ${t.name} looks on the pizza`, title: 'Looks like (on the app\'s pizza picture)',
         onchange: (e) => run(() => api('PATCH', `/api/admin/toppings/${t.id}`, { style: e.target.value })),
       }, STYLES.map((st) => el('option', { value: st, selected: st === t.style }, STYLE_LABEL[st]))),
+      el('div', { class: 'pieces' },
+        el('button', {
+          type: 'button', class: 'strip' + (t.piece_urls.length ? '' : ' none') + (state.piecesBusy === t.id ? ' busy' : ''),
+          'aria-label': t.piece_urls.length ? `Replace the ${t.piece_urls.length} pieces of ${t.name}`
+                                            : `Add a pieces sheet for ${t.name}`,
+          title: 'Pieces the app scatters on its pizza picture',
+          onclick: () => { state.piecesFor = t.id; $('#pieces-input').value = ''; $('#pieces-input').click(); },
+        }, state.piecesBusy === t.id ? 'Cutting into pieces…'
+          : t.piece_urls.length ? t.piece_urls.map((u) => el('img', { src: u, alt: '' })) : 'Add pieces sheet'),
+        t.piece_urls.length ? el('button', { type: 'button', class: 'linkish', 'aria-label': `Remove pieces of ${t.name}`,
+          onclick: () => { if (confirm(`Remove the pieces of ${t.name}?`)) run(() => api('DELETE', `/api/admin/toppings/${t.id}/pieces`)); },
+        }, 'Remove') : null),
       el('div', { class: 'bar' },
         mover('toppings', state.toppings, i, t.name, true),
         toggle(t.active, 'Available', (v) => run(() => api('PATCH', `/api/admin/toppings/${t.id}`, { active: v }))),
@@ -610,6 +637,42 @@ $('#photo-input').addEventListener('change', (e) => {
         throw new Error('Photo upload failed: ' + msg);
       }
     } finally { state.busy = null; }
+  });
+});
+
+// Pieces sheet: sent as it is (the server cuts it); only a very big file is shrunk first.
+const MAX_SHEET_BYTES = 8 * 1024 * 1024, SHEET_PX = 1600;
+async function shrinkSheet(file) {
+  if (file.size <= MAX_SHEET_BYTES) return file;
+  const img = await loadImage(file);
+  const scale = Math.min(1, SHEET_PX / Math.max(img.naturalWidth, img.naturalHeight));
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.round(img.naturalWidth * scale);
+  canvas.height = Math.round(img.naturalHeight * scale);
+  const ctx = canvas.getContext('2d');
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+  URL.revokeObjectURL(img.src);
+  return toBlob(canvas, 'image/png');  // PNG keeps the transparency
+}
+$('#pieces-input').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  const id = state.piecesFor;
+  if (!file || id == null) return;
+  state.piecesBusy = id;
+  render();
+  run(async () => {
+    try {
+      const blob = await shrinkSheet(file);
+      const r = await fetch(`/api/admin/toppings/${id}/pieces`, {
+        method: 'PUT', headers: { 'Content-Type': blob.type || 'application/octet-stream' }, body: blob,
+      });
+      if (!r.ok) {
+        let msg = `${r.status} ${r.statusText}`;
+        try { msg = (await r.json()).detail; } catch {}
+        throw new Error('Pieces sheet failed: ' + msg);
+      }
+    } finally { state.piecesBusy = null; }
   });
 });
 

@@ -7,3 +7,5 @@ httpx[http2]==0.28.1
 h2==4.4.1
 PyJWT[crypto]==2.15.1
 cryptography==50.0.2
+# Cutting owner-uploaded pieces sheets (topping_pieces.py), added in v0.10.0
+pillow==12.1.1

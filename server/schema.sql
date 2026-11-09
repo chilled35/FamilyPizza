@@ -30,7 +30,17 @@ CREATE TABLE IF NOT EXISTS toppings (
   image_type TEXT,                             -- its MIME type
   image_hash TEXT,                             -- sha1 of image; versions the image URL
   sort_order INTEGER NOT NULL DEFAULT 0,       -- owner's list order (migration 005)
-  deleted    INTEGER NOT NULL DEFAULT 0        -- 1 = deleted in /admin; kept for order history
+  deleted    INTEGER NOT NULL DEFAULT 0,       -- 1 = deleted in /admin; kept for order history
+  piece_count INTEGER NOT NULL DEFAULT 0,      -- pieces cut from the owner's pieces sheet (0 = none)
+  pieces_hash TEXT                             -- sha1 over those pieces; versions the piece URLs
+);
+
+-- pieces cut from a topping's "pieces sheet" (topping_pieces.py), PNG ~144 px, n = 1..piece_count
+CREATE TABLE IF NOT EXISTS topping_pieces (
+  topping_id INTEGER NOT NULL REFERENCES toppings(id) ON DELETE CASCADE,
+  n          INTEGER NOT NULL,
+  image      BLOB NOT NULL,
+  PRIMARY KEY (topping_id, n)
 );
 
 CREATE TABLE IF NOT EXISTS pizzas (
