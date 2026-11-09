@@ -1,0 +1,5 @@
+// Signing team for the Family Pizza app.
+// The real Team ID lives in Local.xcconfig next to this file, which git ignores.
+// New checkout: cp Local.xcconfig.example Local.xcconfig and put your Team ID in it.
+DEVELOPMENT_TEAM =
+#include? "Local.xcconfig"

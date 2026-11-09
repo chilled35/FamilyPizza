@@ -1,0 +1,6 @@
+{
+  "key_id": "ABCDE12345",
+  "team_id": "YOURTEAMID",
+  "topic": "com.example.familypizza",
+  "key_path": "/etc/pizza-app/AuthKey_ABCDE12345.p8"
+}

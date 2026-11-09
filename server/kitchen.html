@@ -1,0 +1,330 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Kitchen">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Kitchen</title>
+<style>
+  :root {
+    --bg: #f3f1ee; --card: #ffffff; --text: #1b1917; --muted: #6b655e; --line: #e2ddd6;
+    --new: #1f6fd1; --new-bg: #e6f0fc;
+    --prep: #c26a00; --prep-bg: #fdf0de;
+    --ready: #1e8a4c; --ready-bg: #e3f5ea;
+    --add: #1e8a4c; --remove: #b3261e; --err-bg: #fde8e4; --err: #8f2414;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #121110; --card: #1e1c1a; --text: #f3efea; --muted: #a39c94; --line: #34302c;
+      --new: #6aa8f5; --new-bg: #17283d;
+      --prep: #f2a640; --prep-bg: #3a2810;
+      --ready: #5ccf8b; --ready-bg: #12331f;
+      --add: #5ccf8b; --remove: #ff8a80; --err-bg: #3a1a14; --err: #ffb4a4;
+      color-scheme: dark;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); }
+  body { font: 20px/1.35 system-ui, -apple-system, sans-serif; -webkit-user-select: none; user-select: none;
+         padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
+  header { display: flex; align-items: center; gap: 16px; padding: 14px 16px; flex-wrap: wrap; }
+  h1 { font-size: 1.5rem; margin: 0; flex: 1; }
+  .live { display: inline-flex; align-items: center; gap: 8px; font-size: 1rem; color: var(--muted); }
+  .dot { width: 14px; height: 14px; border-radius: 50%; background: var(--remove); }
+  .live.on .dot { background: var(--ready); }
+  button { font: inherit; color: inherit; cursor: pointer; border-radius: 12px; border: 1px solid var(--line);
+           background: var(--card); min-height: 52px; padding: 0 18px; }
+  button:disabled { opacity: .5; }
+  #error { display: none; margin: 0 16px 12px; padding: 12px 16px; border-radius: 12px;
+           background: var(--err-bg); color: var(--err); }
+  main { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; padding: 0 16px 24px; align-items: start; }
+  @media (max-width: 700px) { main { grid-template-columns: 1fr; } }
+  .col h2 { font-size: 1.15rem; margin: 0 0 10px; display: flex; justify-content: space-between; align-items: center;
+            padding: 8px 14px; border-radius: 12px; }
+  .col.new h2 { background: var(--new-bg); color: var(--new); }
+  .col.preparing h2 { background: var(--prep-bg); color: var(--prep); }
+  .col.ready h2 { background: var(--ready-bg); color: var(--ready); }
+  .count { font-variant-numeric: tabular-nums; }
+  .empty { color: var(--muted); padding: 14px; text-align: center; }
+  .card { background: var(--card); border: 1px solid var(--line); border-left: 8px solid var(--line);
+          border-radius: 14px; padding: 14px; margin-bottom: 12px; }
+  .col.new .card { border-left-color: var(--new); }
+  .col.preparing .card { border-left-color: var(--prep); }
+  .col.ready .card { border-left-color: var(--ready); }
+  .card.fresh { animation: flash 1.2s ease-out 3; }
+  @keyframes flash { 0% { box-shadow: 0 0 0 6px var(--new); } 100% { box-shadow: 0 0 0 0 transparent; } }
+  .who { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+  .who strong { font-size: 1.35rem; }
+  .age { color: var(--muted); font-size: .95rem; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .age.late { color: var(--remove); font-weight: 600; }
+  ul { list-style: none; margin: 10px 0 0; padding: 0; }
+  li.pizza { padding: 8px 0; border-top: 1px solid var(--line); }
+  .pname { font-weight: 700; font-size: 1.2rem; }
+  .mods { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 2px; font-size: 1.05rem; }
+  .plus { color: var(--add); font-weight: 600; }
+  .minus { color: var(--remove); font-weight: 600; text-decoration: line-through; }
+  .sauce { display: inline-flex; align-items: center; gap: 6px; font-size: 1.05rem; color: var(--muted); }
+  .sauce i { width: 14px; height: 14px; border-radius: 50%; border: 1px solid var(--line); display: inline-block; }
+  .sauce.changed { color: var(--text); font-weight: 600; }
+  .halves { margin-top: 4px; display: grid; gap: 2px; font-size: 1.05rem; }
+  .halves b { display: inline-block; min-width: 5.2em; color: var(--muted); font-weight: 600; }
+  .halves .side-left b, .halves .side-right b { color: var(--prep); }
+  .pname .custom { color: var(--prep); font-size: 1rem; }
+  .note { margin-top: 10px; padding: 8px 12px; border-radius: 10px; background: var(--prep-bg); font-style: italic; }
+  .actions { display: flex; gap: 10px; margin-top: 12px; }
+  .actions .go { flex: 1; font-weight: 700; font-size: 1.15rem; color: #fff; border: 0; min-height: 60px; }
+  .col.new .go { background: var(--new); }
+  .col.preparing .go { background: var(--prep); }
+  .col.ready .go { background: var(--ready); }
+  @media (prefers-color-scheme: dark) { .actions .go { color: #10100f; } }
+  .actions .back { min-width: 60px; font-size: 1.3rem; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🍕 Kitchen</h1>
+  <button id="sound" type="button">🔕 Tap for sound</button>
+  <span class="live" id="live"><span class="dot"></span><span id="live-text">Connecting…</span></span>
+</header>
+<div id="error" role="alert"></div>
+<main id="board"></main>
+
+<script>
+const COLUMNS = [
+  { status: 'new', title: 'Pending', next: 'preparing', label: 'Start baking' },
+  { status: 'preparing', title: 'Baking', next: 'ready', label: 'Ready ✓' },
+  { status: 'ready', title: 'Ready', next: 'collected', label: 'Collected' },
+];
+const PREV = { preparing: 'new', ready: 'preparing' };
+
+// Sauce: always shown (orders from before sauces existed have none). Bold when it isn't
+// the pizza's usual one, so a swap isn't missed.
+function sauceLine(it) {
+  if (!it.sauce) return null;
+  const usual = defaultSauce[it.pizza_id];
+  const changed = it.pizza_id != null && usual != null && usual !== it.sauce.id;
+  return el('div', { class: 'sauce' + (changed ? ' changed' : '') },
+    el('i', { style: it.sauce.colour ? `background:${it.sauce.colour}` : 'border-style:dashed' }),
+    it.sauce.name === 'No sauce' || !it.sauce.colour ? it.sauce.name : `${it.sauce.name} sauce`,
+    changed ? ' (swapped)' : '');
+}
+
+// Build your own: toppings grouped by where they go.
+function halves(toppings) {
+  if (!toppings.length) return el('div', { class: 'halves' }, el('div', {}, 'No toppings'));
+  const label = (t) => (t.extra ? `Double ${t.name}` : t.name);
+  const rows = [['whole', 'All over'], ['left', 'Left half'], ['right', 'Right half']]
+    .map(([side, title]) => [side, title, toppings.filter((t) => t.side === side)])
+    .filter(([, , list]) => list.length);
+  return el('div', { class: 'halves' }, rows.map(([side, title, list]) =>
+    el('div', { class: 'side-' + side }, el('b', {}, title), list.map(label).join(', '))));
+}
+
+// {left, right} amounts (0 none, 1 normal, 2 double) -> what halves() shows: one entry when
+// both halves match, else one per half.
+function placed(name, left, right) {
+  if (left === right) return left ? [{ name, side: 'whole', extra: left === 2 }] : [];
+  return [left && { name, side: 'left', extra: left === 2 }, right && { name, side: 'right', extra: right === 2 }]
+    .filter(Boolean);
+}
+
+// A menu pizza as it should be made, when that isn't plain "everything all over": the person
+// changed halves in the app (it.toppings), or the recipe itself has halves or doubles (then
+// added/removed are applied to it: "+ X" all over, "Extra X" doubles it where it is).
+function madeAs(it) {
+  if (it.toppings.length) return it.toppings;
+  const recipe = recipes[it.pizza_id];
+  if (!recipe || recipe.every((t) => t.left === 1 && t.right === 1)) return null;
+  const made = new Map(recipe.map((t) => [t.id, { name: t.name, left: t.left, right: t.right }]));
+  it.removed.forEach((t) => made.delete(t.id));
+  it.added.forEach((t) => {
+    const m = made.get(t.id);
+    if (m) { m.left = m.left && 2; m.right = m.right && 2; } else made.set(t.id, { name: t.name, left: 1, right: 1 });
+  });
+  return [...made.values()].flatMap((m) => placed(m.name, m.left, m.right));
+}
+
+// From the menu (refreshed with each snapshot): pizza id -> default sauce id, and -> base toppings.
+let defaultSauce = {};
+let recipes = {};
+async function loadMenu() {
+  try {
+    const menu = await (await fetch('/api/admin/pizzas')).json();
+    defaultSauce = Object.fromEntries(menu.map((p) => [p.id, p.sauce ? p.sauce.id : null]));
+    recipes = Object.fromEntries(menu.map((p) => [p.id, p.toppings]));
+  } catch {}
+}
+const LATE_MINUTES = 30;
+
+let orders = [];
+let seen = null;          // ids already shown; null until the first snapshot arrives
+let fresh = new Set();    // ids to flash on this render
+let audio = null;
+
+const $ = (s) => document.querySelector(s);
+
+function el(tag, attrs = {}, ...children) {
+  const n = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k.startsWith('on')) n.addEventListener(k.slice(2), v);
+    else if (k === 'class') n.className = v;
+    else if (k === 'disabled') n.disabled = v;
+    else if (v != null) n.setAttribute(k, v);
+  }
+  for (const c of children.flat()) if (c != null) n.append(c);
+  return n;
+}
+
+function showError(msg) {
+  const box = $('#error');
+  box.textContent = msg || '';
+  box.style.display = msg ? 'block' : 'none';
+}
+
+function age(iso) {
+  const mins = Math.max(0, Math.floor((Date.now() - Date.parse(iso)) / 60000));
+  if (mins < 1) return { text: 'just now', mins };
+  if (mins < 60) return { text: `${mins} min`, mins };
+  return { text: `${Math.floor(mins / 60)} h ${mins % 60} min`, mins };
+}
+
+function clock(iso) {
+  return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
+function card(o, col) {
+  const a = age(o.created_at);
+  const late = o.status !== 'ready' && a.mins >= LATE_MINUTES;
+  return el('article', { class: 'card' + (fresh.has(o.id) ? ' fresh' : '') },
+    el('div', { class: 'who' },
+      el('strong', {}, o.user_name),
+      el('span', { class: 'age' + (late ? ' late' : ''), title: `Ordered ${clock(o.created_at)}` },
+        `#${o.id} · ${clock(o.created_at)} · ${a.text}`)),
+    el('ul', {}, o.items.map((it) => {
+      const made = it.pizza_id == null ? null : madeAs(it);
+      // Halves changed in the app: added/removed only approximate it, so show just the pizza as made.
+      const custom = it.pizza_id != null && it.toppings.length > 0;
+      return el('li', { class: 'pizza' },
+        el('div', { class: 'pname' }, it.pizza_name, custom ? el('span', { class: 'custom' }, ' · changed') : null),
+        sauceLine(it),
+        !custom && (it.added.length || it.removed.length) ? el('div', { class: 'mods' },
+          it.added.map((t) => el('span', { class: 'plus' }, `+ ${t.name}`)),
+          it.removed.map((t) => el('span', { class: 'minus' }, `− ${t.name}`))) : null,
+        it.pizza_id == null ? halves(it.toppings) : made ? halves(made) : null);
+    })),
+    o.note ? el('div', { class: 'note' }, `“${o.note}”`) : null,
+    el('div', { class: 'actions' },
+      PREV[o.status] ? el('button', { class: 'back', type: 'button', title: 'Undo: move back',
+        'aria-label': `Move order ${o.id} back`, onclick: (e) => setStatus(o.id, PREV[o.status], e.currentTarget) }, '↶') : null,
+      el('button', { class: 'go', type: 'button', onclick: (e) => setStatus(o.id, col.next, e.currentTarget) }, col.label)));
+}
+
+function render() {
+  $('#board').replaceChildren(...COLUMNS.map((col) => {
+    const list = orders.filter((o) => o.status === col.status);
+    return el('section', { class: `col ${col.status}` },
+      el('h2', {}, col.title, el('span', { class: 'count' }, String(list.length))),
+      list.length ? list.map((o) => card(o, col)) : el('div', { class: 'empty' }, 'Nothing here'));
+  }));
+  fresh = new Set();
+}
+
+async function setStatus(id, status, button) {
+  button.disabled = true;
+  try {
+    const r = await fetch(`/api/orders/${id}/status`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status }),
+    });
+    if (!r.ok) throw new Error(`${r.status} ${(await r.json().catch(() => ({}))).detail || r.statusText}`);
+    showError('');
+    // The stream pushes the new state; if it's down, fetch it directly.
+    if (stream.readyState !== EventSource.OPEN) await refresh();
+  } catch (e) {
+    showError(`Couldn't update order #${id}: ${e.message}`);
+    button.disabled = false;
+  }
+}
+
+function apply(list) {
+  if (seen) {
+    const added = list.filter((o) => !seen.has(o.id));
+    added.forEach((o) => fresh.add(o.id));
+    if (added.length) chime();
+  }
+  seen = new Set(list.map((o) => o.id).concat(seen ? [...seen] : []));
+  orders = list;
+  render();
+}
+
+async function refresh() {
+  const r = await fetch('/api/kitchen/orders');
+  if (r.ok) apply(await r.json());
+}
+
+function setLive(on, text) {
+  $('#live').classList.toggle('on', on);
+  $('#live-text').textContent = text;
+}
+
+// ---- live stream. EventSource retries dropped connections itself (server sends
+// retry: 3000) but gives up for good on an HTTP error response (e.g. mid-deploy),
+// so reopen it ourselves when it ends up CLOSED.
+let stream;
+function connect() {
+  stream = new EventSource('/api/stream');
+  stream.addEventListener('orders', async (e) => {
+    await loadMenu();  // default sauces, so a swapped sauce stands out
+    apply(JSON.parse(e.data));
+    setLive(true, 'Live');
+  });
+  stream.addEventListener('open', () => setLive(true, 'Live'));
+  stream.addEventListener('error', () => {
+    setLive(false, 'Reconnecting…');
+    if (stream.readyState === EventSource.CLOSED) setTimeout(connect, 5000);
+  });
+}
+connect();
+
+// ---- sound: browsers only allow audio after a tap, so the button unlocks it
+function chime() {
+  if (!audio) return;
+  const t = audio.currentTime;
+  [[880, 0], [1320, 0.18]].forEach(([freq, at]) => {
+    const osc = audio.createOscillator(), gain = audio.createGain();
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(0.0001, t + at);
+    gain.gain.exponentialRampToValueAtTime(0.4, t + at + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + at + 0.5);
+    osc.connect(gain).connect(audio.destination);
+    osc.start(t + at); osc.stop(t + at + 0.55);
+  });
+}
+$('#sound').addEventListener('click', async (e) => {
+  if (audio) { await audio.close(); audio = null; e.currentTarget.textContent = '🔕 Tap for sound'; return; }
+  audio = new (window.AudioContext || window.webkitAudioContext)();
+  await audio.resume();
+  e.currentTarget.textContent = '🔔 Sound on';
+  chime();
+  keepAwake();
+});
+
+// ---- keep the iPad screen on while this page is visible (where supported)
+let wakeLock = null;
+async function keepAwake() {
+  try { if ('wakeLock' in navigator && !wakeLock) {
+    wakeLock = await navigator.wakeLock.request('screen');
+    wakeLock.addEventListener('release', () => { wakeLock = null; });
+  } } catch { /* not supported or not allowed; harmless */ }
+}
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') keepAwake(); });
+keepAwake();
+
+// ---- keep the "x min" ages fresh
+setInterval(render, 30000);
+</script>
+</body>
+</html>

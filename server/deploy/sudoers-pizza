@@ -1,0 +1,3 @@
+# /etc/sudoers.d/pizza  (root:root, mode 440; check with: visudo -cf /etc/sudoers.d/pizza)
+# The deploy user may restart the app and nothing else.
+pizza ALL=(root) NOPASSWD: /usr/bin/systemctl restart pizza-app

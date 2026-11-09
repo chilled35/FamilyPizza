@@ -1,0 +1,55 @@
+# Family Pizza iOS app. Generate the Xcode project with:  cd ios && xcodegen
+# (FamilyPizza.xcodeproj is generated: edit this file, not the project.)
+name: FamilyPizza
+options:
+  bundleIdPrefix: com.aspinalljason
+  deploymentTarget:
+    iOS: "17.0"
+  createIntermediateGroups: true
+configFiles:
+  # Team ID comes from ios/Local.xcconfig (not in git) via Signing.xcconfig.
+  Debug: Signing.xcconfig
+  Release: Signing.xcconfig
+settings:
+  base:
+    CODE_SIGN_STYLE: Automatic
+    SWIFT_VERSION: "6.0"
+targets:
+  FamilyPizza:
+    type: application
+    platform: iOS
+    sources:
+      - path: FamilyPizza
+    settings:
+      base:
+        PRODUCT_NAME: FamilyPizza
+        PRODUCT_BUNDLE_IDENTIFIER: com.aspinalljason.familypizza  # = APNs topic on the server (HANDOFF §6)
+        MARKETING_VERSION: "1.2"
+        CURRENT_PROJECT_VERSION: "4"
+        TARGETED_DEVICE_FAMILY: "1"  # iPhone only; the kitchen iPad uses the /kitchen web page
+        CODE_SIGN_ENTITLEMENTS: FamilyPizza/FamilyPizza.entitlements
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        GENERATE_INFOPLIST_FILE: NO
+    info:
+      path: FamilyPizza/Info.plist
+      properties:
+        CFBundleDisplayName: Family Pizza
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        # Same dark ground as SplashView, so the static launch screen hands over without a flash.
+        UILaunchScreen:
+          UIColorName: LaunchBackground
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+        # Plain HTTP to the LAN server (192.168.0.50). Local networking only; no arbitrary loads.
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
+        # iOS asks for Local Network permission the first time the app talks to the server.
+        NSLocalNetworkUsageDescription: Family Pizza talks to the pizza server on your home Wi-Fi.
+        # No custom encryption: skips the export-compliance question on every TestFlight upload.
+        ITSAppUsesNonExemptEncryption: false
+    entitlements:
+      path: FamilyPizza/FamilyPizza.entitlements
+      properties:
+        # Xcode signs TestFlight/App Store builds with "production" automatically.
+        aps-environment: development

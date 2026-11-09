@@ -1,0 +1,23 @@
+# Secrets: the APNs key must never be committed
+Certs&Keys/
+*.p8
+
+# Local clutter
+.DS_Store
+__pycache__/
+*.pyc
+
+# Xcode
+ios/build/
+xcuserdata/
+*.xcuserstate
+
+# Local tooling and server runtime files
+.claude/
+venv/
+*.db
+*.db.bak-*
+*.xcarchive
+
+# Apple Team ID for signing (see ios/Signing.xcconfig)
+ios/Local.xcconfig
