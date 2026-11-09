@@ -70,9 +70,14 @@
   .sauce { display: inline-flex; align-items: center; gap: 6px; font-size: 1.05rem; color: var(--muted); }
   .sauce i { width: 14px; height: 14px; border-radius: 50%; border: 1px solid var(--line); display: inline-block; }
   .sauce.changed { color: var(--text); font-weight: 600; }
-  .halves { margin-top: 4px; display: grid; gap: 2px; font-size: 1.05rem; }
-  .halves b { display: inline-block; min-width: 5.2em; color: var(--muted); font-weight: 600; }
-  .halves .side-left b, .halves .side-right b { color: var(--prep); }
+  .halves { margin-top: 6px; display: grid; gap: 10px; font-size: 1.05rem; }
+  .halves .side > b { display: block; color: var(--muted); font-weight: 600; font-size: .95rem; }
+  .halves .side-left > b, .halves .side-right > b { color: var(--prep); }
+  .groups { display: grid; grid-template-columns: repeat(auto-fit, minmax(7em, 1fr)); gap: 6px 14px; margin-top: 2px; }
+  .group h3 { margin: 0 0 2px; font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em;
+              color: var(--muted); border-bottom: 1px solid var(--line); padding-bottom: 2px; }
+  .group div { padding: 1px 0; line-height: 1.25; }
+  .dbl { font-weight: 800; color: var(--prep); }
   .pname .custom { color: var(--prep); font-size: 1rem; }
   .note { margin-top: 10px; padding: 8px 12px; border-radius: 10px; background: var(--prep-bg); font-style: italic; }
   .actions { display: flex; gap: 10px; margin-top: 12px; }
@@ -113,22 +118,37 @@ function sauceLine(it) {
     changed ? ' (swapped)' : '');
 }
 
-// Build your own: toppings grouped by where they go.
+// Kitchen groups, from each topping's draw style (set in /admin). Unknown or "generic"
+// styles (and toppings deleted since the order) land in Other.
+const GROUPS = [['cheese', 'Cheese'], ['meat', 'Meat'], ['veg', 'Veg'], ['other', 'Other']];
+const STYLE_GROUP = {
+  cheese: 'cheese',
+  pepperoni: 'meat', ham: 'meat', sausage: 'meat', chicken: 'meat',
+  mushroom: 'veg', onion: 'veg', pepper: 'veg', pineapple: 'veg', chilli: 'veg',
+  olive: 'veg', basil: 'veg', sweetcorn: 'veg', tomato: 'veg',
+};
+const groupOf = (t) => STYLE_GROUP[toppingStyle[t.id]] || 'other';
+
+// Toppings by where they go (all over / left / right), then in columns by group.
 function halves(toppings) {
   if (!toppings.length) return el('div', { class: 'halves' }, el('div', {}, 'No toppings'));
-  const label = (t) => (t.extra ? `Double ${t.name}` : t.name);
+  const label = (t) => el('div', {}, t.extra ? el('span', { class: 'dbl' }, '2× ') : null, t.name);
   const rows = [['whole', 'All over'], ['left', 'Left half'], ['right', 'Right half']]
     .map(([side, title]) => [side, title, toppings.filter((t) => t.side === side)])
     .filter(([, , list]) => list.length);
   return el('div', { class: 'halves' }, rows.map(([side, title, list]) =>
-    el('div', { class: 'side-' + side }, el('b', {}, title), list.map(label).join(', '))));
+    el('div', { class: 'side side-' + side }, el('b', {}, title),
+      el('div', { class: 'groups' }, GROUPS
+        .map(([g, name]) => [name, list.filter((t) => groupOf(t) === g)])
+        .filter(([, items]) => items.length)
+        .map(([name, items]) => el('div', { class: 'group' }, el('h3', {}, name), items.map(label)))))));
 }
 
 // {left, right} amounts (0 none, 1 normal, 2 double) -> what halves() shows: one entry when
 // both halves match, else one per half.
-function placed(name, left, right) {
-  if (left === right) return left ? [{ name, side: 'whole', extra: left === 2 }] : [];
-  return [left && { name, side: 'left', extra: left === 2 }, right && { name, side: 'right', extra: right === 2 }]
+function placed({ id, name }, left, right) {
+  if (left === right) return left ? [{ id, name, side: 'whole', extra: left === 2 }] : [];
+  return [left && { id, name, side: 'left', extra: left === 2 }, right && { id, name, side: 'right', extra: right === 2 }]
     .filter(Boolean);
 }
 
@@ -139,24 +159,28 @@ function madeAs(it) {
   if (it.toppings.length) return it.toppings;
   const recipe = recipes[it.pizza_id];
   if (!recipe || recipe.every((t) => t.left === 1 && t.right === 1)) return null;
-  const made = new Map(recipe.map((t) => [t.id, { name: t.name, left: t.left, right: t.right }]));
+  const made = new Map(recipe.map((t) => [t.id, { id: t.id, name: t.name, left: t.left, right: t.right }]));
   it.removed.forEach((t) => made.delete(t.id));
   it.added.forEach((t) => {
     const m = made.get(t.id);
-    if (m) { m.left = m.left && 2; m.right = m.right && 2; } else made.set(t.id, { name: t.name, left: 1, right: 1 });
+    if (m) { m.left = m.left && 2; m.right = m.right && 2; } else made.set(t.id, { id: t.id, name: t.name, left: 1, right: 1 });
   });
-  return [...made.values()].flatMap((m) => placed(m.name, m.left, m.right));
+  return [...made.values()].flatMap((m) => placed(m, m.left, m.right));
 }
 
-// From the menu (refreshed with each snapshot): pizza id -> default sauce id, and -> base toppings.
+// From the menu (refreshed with each snapshot): pizza id -> default sauce id, and -> base toppings;
+// topping id -> draw style (for the groups).
 let defaultSauce = {};
 let recipes = {};
+let toppingStyle = {};
 async function loadMenu() {
-  try {
-    const menu = await (await fetch('/api/admin/pizzas')).json();
+  const [menu, toppings] = await Promise.all(['/api/admin/pizzas', '/api/admin/toppings']
+    .map((url) => fetch(url).then((r) => r.json()).catch(() => null)));
+  if (Array.isArray(menu)) {
     defaultSauce = Object.fromEntries(menu.map((p) => [p.id, p.sauce ? p.sauce.id : null]));
     recipes = Object.fromEntries(menu.map((p) => [p.id, p.toppings]));
-  } catch {}
+  }
+  if (Array.isArray(toppings)) toppingStyle = Object.fromEntries(toppings.map((t) => [t.id, t.style]));
 }
 const LATE_MINUTES = 30;
 
