@@ -14,31 +14,32 @@ code change. Re-run after changing the sources:
 
     cd ios && python3 tools/cut_toppings.py
 
-Needs Pillow (pip install Pillow). Writes a contact sheet of every piece on a sauce-red ground
-to /tmp/topping_pieces.png (or the path given as the first argument) for checking by eye.
+The cutting is in server/topping_pieces.py, shared with the server (which cuts the pieces
+sheets the owner uploads in /admin the same way). Needs Pillow (pip install Pillow).
+Writes a contact sheet of every piece on a sauce-red ground to /tmp/topping_pieces.png
+(or the path given as the first argument) for checking by eye.
 """
 from __future__ import annotations
 
 import json
 import shutil
 import sys
-from collections import deque
 from pathlib import Path
 
-from PIL import Image, ImageFilter
+from PIL import Image
 
 ROOT = Path(__file__).resolve().parents[2]
+# The cutting itself is shared with the server, which cuts the owner's pieces sheets the same way.
+sys.path.insert(0, str(ROOT / "server"))
+import topping_pieces as shared  # noqa: E402
+from topping_pieces import HOLES, PIECE_PX, WORK_PX, pieces  # noqa: E402
+
 SOURCES = ROOT / "Food Images"
 OUT = ROOT / "ios" / "FamilyPizza" / "Assets.xcassets" / "Toppings"
 
-PIECE_PX = 144        # longest side of a saved piece (drawn at ~20-45 pt, so about 3x)
-WORK_PX = 900         # single-topping sources are scaled down to this before cutting
+# PIECE_PX, WORK_PX, HOLES and the piece-finding thresholds live in server/topping_pieces.py.
 SHEET_PX = 1600       # collection sheets keep full size (their pieces are small)
-MAX_PER_SET = 12      # keeps the app small; singles first, then the collection sheets
-MIN_PIECE = 0.004     # a piece must cover this fraction of the (scaled) image
-# Enclosed background is a hole (cleared) only in these toppings, and only when it covers at
-# least this fraction of the image: elsewhere pale flesh (onion, mushroom) would be cut away.
-HOLES = {"chilli": 0.00004, "olive": 0.00004, "onion": 0.0004}
+MAX_PER_SET = shared.MAX_PIECES  # keeps the app small; singles first, then the collection sheets
 
 # (file, set)
 SINGLES = [
@@ -79,88 +80,12 @@ SHEETS = [
 ]
 
 
-def is_backdrop(p: tuple[int, int, int]) -> bool:
-    """White or light grey with no colour: the painted checkerboard."""
-    lo, hi = min(p), max(p)
-    return lo > 200 and hi - lo < 18
-
-
-def components(mask: bytearray, w: int, h: int) -> list[list[int]]:
-    """4-connected areas of set pixels, as lists of flat indices."""
-    seen = bytearray(w * h)
-    out = []
-    for start in range(w * h):
-        if not mask[start] or seen[start]:
-            continue
-        seen[start] = 1
-        q, area = deque([start]), []
-        while q:
-            i = q.popleft()
-            area.append(i)
-            x = i % w
-            for j in (i + 1 if x + 1 < w else -1, i - 1 if x > 0 else -1, i + w, i - w):
-                if 0 <= j < w * h and mask[j] and not seen[j]:
-                    seen[j] = 1
-                    q.append(j)
-        out.append(area)
-    return out
-
-
 def cut_out(path: Path, topping_at, size: int = WORK_PX) -> Image.Image:
     """The image with a clean alpha channel, scaled to `size`.
     `topping_at(x, y)` (fractions of the image) names the topping there, for HOLES."""
     im = Image.open(path)
     im.thumbnail((size, size), Image.LANCZOS)
-    if im.mode == "RGBA" and im.getchannel("A").getextrema()[0] < 20:
-        return im  # real transparency
-    rgb = im.convert("RGB")
-    w, h = rgb.size
-    px = rgb.load()
-    backdrop = bytearray(1 if is_backdrop(px[i % w, i // w]) else 0 for i in range(w * h))
-    alpha = bytearray([255]) * (w * h)
-    for area in components(backdrop, w, h):
-        touches_edge = any(i % w in (0, w - 1) or i // w in (0, h - 1) for i in area)
-        if not touches_edge:
-            i = area[len(area) // 2]
-            min_hole = HOLES.get(topping_at((i % w) / w, (i // w) / h))
-            touches_edge = min_hole is not None and len(area) >= min_hole * w * h
-        if touches_edge:
-            for i in area:
-                alpha[i] = 0
-    mask = Image.frombytes("L", (w, h), bytes(alpha))
-    # Pull the edge in a pixel (drops the light fringe), then soften it.
-    mask = mask.filter(ImageFilter.MinFilter(3)).filter(ImageFilter.GaussianBlur(0.8))
-    out = rgb.convert("RGBA")
-    out.putalpha(mask)
-    return out
-
-
-def pieces(im: Image.Image) -> list[tuple[Image.Image, tuple[float, float]]]:
-    """Each separate piece, trimmed, with its centre (fractions of the image)."""
-    w, h = im.size
-    a = im.getchannel("A").tobytes()
-    solid = bytearray(1 if v >= 100 else 0 for v in a)
-    found = []
-    for area in components(solid, w, h):
-        if len(area) < MIN_PIECE * w * h:
-            continue
-        xs = [i % w for i in area]
-        ys = [i // w for i in area]
-        pad = 4
-        box = (max(0, min(xs) - pad), max(0, min(ys) - pad), min(w, max(xs) + pad + 1), min(h, max(ys) + pad + 1))
-        # Keep only this piece's pixels (plus its soft edge), not a neighbour poking into the box.
-        keep = Image.new("L", (w, h), 0)
-        kp = keep.load()
-        for i in area:
-            kp[i % w, i // w] = 255
-        keep = keep.filter(ImageFilter.MaxFilter(5))
-        piece = im.copy()
-        piece.putalpha(Image.composite(im.getchannel("A"), Image.new("L", (w, h), 0), keep))
-        piece = piece.crop(box)
-        piece.thumbnail((PIECE_PX, PIECE_PX), Image.LANCZOS)
-        found.append((piece, ((box[0] + box[2]) / 2 / w, (box[1] + box[3]) / 2 / h)))
-    found.sort(key=lambda f: (round(f[1][1] * 4), f[1][0]))  # rows, then left to right
-    return found
+    return shared.cut_out(im, lambda x, y: HOLES.get(topping_at(x, y)))
 
 
 def looks_green(piece: Image.Image) -> bool:

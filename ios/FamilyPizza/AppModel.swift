@@ -112,8 +112,10 @@ final class AppModel {
         }
         // Photos arrive a moment later; drawings stand in until then.
         let all: [any ToppingPictured] = toppings + menu.flatMap(\.toppings)
-        pieceBook = ToppingPieces.book(for: all)
+        pieceBook = ToppingPieces.book(for: all, server: toppingImages.pieces)
         await toppingImages.load(all, baseURL: api.baseURL)
+        // The owner's own pieces (a pieces sheet uploaded in /admin) replace the bundled ones.
+        pieceBook = ToppingPieces.book(for: all, server: toppingImages.pieces)
     }
 
     /// Any topping the app knows about (active extras and menu base toppings, including run-out ones).

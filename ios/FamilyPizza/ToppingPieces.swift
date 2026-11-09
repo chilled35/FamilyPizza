@@ -6,13 +6,15 @@ import UIKit
 ///
 /// Assets are named `piece-<set>-<nn>`, numbered from 01. A topping's set comes from its name
 /// first (so "Harissa Chicken" gets harissa chicken, and a "Basil" left as style "generic" on the
-/// server still gets basil leaves), then from its style.
+/// server still gets basil leaves), then from its style. Pieces the owner uploaded for a topping
+/// (a pieces sheet in /admin, fetched by ToppingImages) come before all of that.
 @MainActor
 enum ToppingPieces {
     private static var cache: [String: [Image]] = [:]
 
-    /// Every set for every style, plus the toppings the app knows by id.
-    static func book(for toppings: [any ToppingPictured]) -> PizzaPieceBook {
+    /// Every set for every style, plus the toppings the app knows by id. `server` holds the
+    /// pieces cut from owner-uploaded sheets, by topping id; they win over the bundled sets.
+    static func book(for toppings: [any ToppingPictured], server: [Int: [Image]] = [:]) -> PizzaPieceBook {
         var book = PizzaPieceBook()
         for style in ToppingStyle.allCases {
             let found = sets(for: style).flatMap(images(inSet:))
@@ -22,6 +24,7 @@ enum ToppingPieces {
             let found = sets(name: topping.name, style: topping.artStyle).flatMap(images(inSet:))
             if !found.isEmpty { book.byTopping[topping.id] = found }
         }
+        for (id, found) in server where !found.isEmpty { book.byTopping[id] = found }
         return book
     }
 
